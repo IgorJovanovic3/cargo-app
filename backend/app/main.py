@@ -7,11 +7,10 @@ import json
 from datetime import datetime, timezone, timedelta
 import asyncio
 
-# ========== AUTO KREIRANJE TABELA I ADMINA ==========
-from app.database import engine, SessionLocal
-from app.models import Base, User, UserType
+# ========== AUTO KREIRANJE TABELA I KORISNIKA ==========
+from app.database import SessionLocal
+from app.models import Base, User, UserType, DriverProfile
 from passlib.context import CryptContext
-import logging
 
 # Kreiraj tabele ako ne postoje
 print("🔧 Kreiranje tabela...")
@@ -21,11 +20,11 @@ print("✅ Tabele su kreirane (ili već postoje)")
 # Kreiraj admin korisnika ako ne postoji
 print("🔧 Provera admin korisnika...")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-db = SessionLocal()
+db_session = SessionLocal()  # 🔥 PROMENJENO: db_session umesto db
 
-admin = db.query(User).filter(User.email == "admin@test.com").first()
-if not admin:
-    admin = User(
+admin_user = db_session.query(User).filter(User.email == "admin@test.com").first()
+if not admin_user:
+    admin_user = User(
         email="admin@test.com",
         hashed_password=pwd_context.hash("admin123"),
         full_name="Admin User",
@@ -33,16 +32,16 @@ if not admin:
         user_type=UserType.ADMIN,
         is_active=1
     )
-    db.add(admin)
-    db.commit()
+    db_session.add(admin_user)
+    db_session.commit()
     print("✅ Admin korisnik kreiran (email: admin@test.com, password: admin123)")
 else:
     print("✅ Admin korisnik već postoji")
 
 # Kreiraj test klijenta ako ne postoji
-client = db.query(User).filter(User.email == "klijent@test.com").first()
-if not client:
-    client = User(
+client_user = db_session.query(User).filter(User.email == "klijent@test.com").first()
+if not client_user:
+    client_user = User(
         email="klijent@test.com",
         hashed_password=pwd_context.hash("123456"),
         full_name="Test Klijent",
@@ -50,16 +49,16 @@ if not client:
         user_type=UserType.CLIENT,
         is_active=1
     )
-    db.add(client)
-    db.commit()
+    db_session.add(client_user)
+    db_session.commit()
     print("✅ Test klijent kreiran (email: klijent@test.com, password: 123456)")
 else:
     print("✅ Test klijent već postoji")
 
 # Kreiraj test vozača ako ne postoji
-driver = db.query(User).filter(User.email == "vozac@test.com").first()
-if not driver:
-    driver = User(
+driver_user = db_session.query(User).filter(User.email == "vozac@test.com").first()
+if not driver_user:
+    driver_user = User(
         email="vozac@test.com",
         hashed_password=pwd_context.hash("123456"),
         full_name="Test Vozač",
@@ -67,19 +66,18 @@ if not driver:
         user_type=UserType.DRIVER,
         is_active=1
     )
-    db.add(driver)
-    db.commit()
+    db_session.add(driver_user)
+    db_session.commit()
     
     # Kreiraj i driver profile
-    from app.models import DriverProfile
-    driver_profile = DriverProfile(user_id=driver.id)
-    db.add(driver_profile)
-    db.commit()
+    driver_profile = DriverProfile(user_id=driver_user.id)
+    db_session.add(driver_profile)
+    db_session.commit()
     print("✅ Test vozač kreiran (email: vozac@test.com, password: 123456)")
 else:
     print("✅ Test vozač već postoji")
 
-db.close()
+db_session.close()
 # ========== KRAJ AUTO KREIRANJA ==========
 
 app = FastAPI(
@@ -88,7 +86,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS - dozvoli sve za sada (kasnije možeš suziti)
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -221,7 +219,7 @@ async def websocket_notifications(websocket: WebSocket, user_id: int):
 app.include_router(auth.router)
 app.include_router(shipments.router)
 app.include_router(notifications.router)
-app.include_router(admin.router)
+app.include_router(admin.router)  # 🔥 Ovo je import router-a, ne korisnika
 app.include_router(reviews.router)
 app.include_router(chat.router)
 
