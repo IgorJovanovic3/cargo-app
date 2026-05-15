@@ -86,10 +86,15 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://cargo-frontend-8k22.onrender.com",  # Vaša trenutna Render adresa
+        "https://cargo-frontend.onrender.com",       # Možda kasnije
+        "http://localhost:5173",                     # Za lokalni razvoj
+        "https://findabite.co.za",                   # Vaš budući domen
+        "https://www.findabite.co.za",               # Vaš budući domen sa www
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
