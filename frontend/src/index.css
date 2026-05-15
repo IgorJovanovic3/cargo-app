@@ -1,0 +1,17 @@
+body {
+  background: linear-gradient(135deg, #834d9b 0%, #d04ed6 100%);
+}
+
+.logo a, h1 {
+  background: linear-gradient(135deg, #834d9b 0%, #d04ed6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+button, .nav a:hover, .nav button:hover {
+  background: linear-gradient(135deg, #834d9b 0%, #d04ed6 100%);
+}
+
+.shipment-card.selected {
+  border-color: #d04ed6;
+}

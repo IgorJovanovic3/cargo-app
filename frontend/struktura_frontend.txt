@@ -1,0 +1,25 @@
+src/
+├── main.jsx
+├── App.jsx
+├── App.css
+├── index.css
+├── components/
+│   ├── Header.jsx
+│   ├── Notifications.jsx
+│   ├── NotificationBell.jsx
+│   ├── DashboardClient.jsx
+│   ├── DashboardDriver.jsx
+│   └── LocationPicker.jsx
+├── pages/
+│   ├── Home.jsx
+│   ├── Login.jsx
+│   ├── Register.jsx
+│   ├── Dashboard.jsx
+│   ├── NovaPosiljka.jsx
+│   ├── AdminDashboard.jsx
+│   ├── ForgotPassword.jsx
+│   └── ResetPassword.jsx
+├── context/
+│   └── AuthContext.jsx
+└── services/
+    └── api.js

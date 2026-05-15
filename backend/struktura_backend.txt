@@ -1,0 +1,15 @@
+app/
+├── __init__.py
+├── main.py
+├── database.py
+├── dependencies.py
+├── models.py
+├── schemas.py
+├── notification_helper.py
+├── routers/
+│   ├── __init__.py
+│   ├── auth.py
+│   ├── shipments.py
+│   ├── notifications.py
+│   └── admin.py
+└── (venv) - ignorisati

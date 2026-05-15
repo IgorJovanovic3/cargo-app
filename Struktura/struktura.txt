@@ -1,0 +1,14 @@
+cargo_app/
+├── backend/
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── database.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   └── routers/
+│   │       ├── __init__.py
+│   │       ├── auth.py
+│   │       ├── users.py
+│   │       └── shipments.py
+│   └── requirements.txt
