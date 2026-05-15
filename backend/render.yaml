@@ -12,4 +12,4 @@ services:
           name: cargo-db
           property: connectionString
       - key: SECRET_KEY
-        sync: false
+        generateValue: true
