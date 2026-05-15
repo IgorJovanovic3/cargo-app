@@ -7,8 +7,80 @@ import json
 from datetime import datetime, timezone, timedelta
 import asyncio
 
-# Kreiraj tabele
+# ========== AUTO KREIRANJE TABELA I ADMINA ==========
+from app.database import engine, SessionLocal
+from app.models import Base, User, UserType
+from passlib.context import CryptContext
+import logging
+
+# Kreiraj tabele ako ne postoje
+print("🔧 Kreiranje tabela...")
 Base.metadata.create_all(bind=engine)
+print("✅ Tabele su kreirane (ili već postoje)")
+
+# Kreiraj admin korisnika ako ne postoji
+print("🔧 Provera admin korisnika...")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+db = SessionLocal()
+
+admin = db.query(User).filter(User.email == "admin@test.com").first()
+if not admin:
+    admin = User(
+        email="admin@test.com",
+        hashed_password=pwd_context.hash("admin123"),
+        full_name="Admin User",
+        phone="0610000000",
+        user_type=UserType.ADMIN,
+        is_active=1
+    )
+    db.add(admin)
+    db.commit()
+    print("✅ Admin korisnik kreiran (email: admin@test.com, password: admin123)")
+else:
+    print("✅ Admin korisnik već postoji")
+
+# Kreiraj test klijenta ako ne postoji
+client = db.query(User).filter(User.email == "klijent@test.com").first()
+if not client:
+    client = User(
+        email="klijent@test.com",
+        hashed_password=pwd_context.hash("123456"),
+        full_name="Test Klijent",
+        phone="0611234567",
+        user_type=UserType.CLIENT,
+        is_active=1
+    )
+    db.add(client)
+    db.commit()
+    print("✅ Test klijent kreiran (email: klijent@test.com, password: 123456)")
+else:
+    print("✅ Test klijent već postoji")
+
+# Kreiraj test vozača ako ne postoji
+driver = db.query(User).filter(User.email == "vozac@test.com").first()
+if not driver:
+    driver = User(
+        email="vozac@test.com",
+        hashed_password=pwd_context.hash("123456"),
+        full_name="Test Vozač",
+        phone="0611234568",
+        user_type=UserType.DRIVER,
+        is_active=1
+    )
+    db.add(driver)
+    db.commit()
+    
+    # Kreiraj i driver profile
+    from app.models import DriverProfile
+    driver_profile = DriverProfile(user_id=driver.id)
+    db.add(driver_profile)
+    db.commit()
+    print("✅ Test vozač kreiran (email: vozac@test.com, password: 123456)")
+else:
+    print("✅ Test vozač već postoji")
+
+db.close()
+# ========== KRAJ AUTO KREIRANJA ==========
 
 app = FastAPI(
     title="Cargo App API",
