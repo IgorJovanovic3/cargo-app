@@ -3,18 +3,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Render će postaviti DATABASE_URL env promenljivu (kasnije)
-# Za sada koristimo lokalnu bazu, posle ćemo zameniti sa PostgreSQL
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://cargo_user:David17Dora21@localhost:3306/cargo_db")
+# Uzmi DATABASE_URL iz environment (Render će je postaviti)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Ako je PostgreSQL (Render), koristi ga, inače MySQL
-if "postgres" in DATABASE_URL or "postgresql" in DATABASE_URL:
-    engine = create_engine(DATABASE_URL)
-else:
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+if not DATABASE_URL:
+    # Lokalna MySQL baza (kada se razvija na računaru)
+    DATABASE_URL = "mysql+pymysql://cargo_user:David17Dora21@localhost:3306/cargo_db"
 
+# PostgreSQL ne zahteva posebne opcije, MySQL da
+connect_args = {}
+if "mysql" in DATABASE_URL:
+    connect_args = {"pool_pre_ping": True}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 Base = declarative_base()
 
 def get_db():
