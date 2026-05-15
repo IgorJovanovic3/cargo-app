@@ -17,26 +17,26 @@ print("🔧 Kreiranje tabela...")
 Base.metadata.create_all(bind=engine)
 print("✅ Tabele su kreirane (ili već postoje)")
 
-# Kreiraj admin korisnika ako ne postoji
-print("🔧 Provera admin korisnika...")
+# Kreiraj administrator korisnika ako ne postoji
+print("🔧 Provera administrator korisnika...")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 db_session = SessionLocal()
 
-admin_user = db_session.query(User).filter(User.email == "admin@test.com").first()
-if not admin_user:
-    admin_user = User(
+administrator = db_session.query(User).filter(User.email == "admin@test.com").first()
+if not administrator:
+    administrator = User(
         email="admin@test.com",
         hashed_password=pwd_context.hash("admin123"),
-        full_name="Admin User",
+        full_name="Administrator",
         phone="0610000000",
         user_type=UserType.ADMIN,
         is_active=1
     )
-    db_session.add(admin_user)
+    db_session.add(administrator)
     db_session.commit()
-    print("✅ Admin korisnik kreiran (email: admin@test.com, password: admin123)")
+    print("✅ Administrator korisnik kreiran (email: admin@test.com, password: admin123)")
 else:
-    print("✅ Admin korisnik već postoji")
+    print("✅ Administrator korisnik već postoji")
 
 # Kreiraj test klijenta ako ne postoji
 client_user = db_session.query(User).filter(User.email == "klijent@test.com").first()
@@ -224,7 +224,7 @@ async def websocket_notifications(websocket: WebSocket, user_id: int):
 app.include_router(auth.router)
 app.include_router(shipments.router)
 app.include_router(notifications.router)
-app.include_router(admin.router)
+app.include_router(admin.router)  # Ovo je router iz app.routers import-a
 app.include_router(reviews.router)
 app.include_router(chat.router)
 
