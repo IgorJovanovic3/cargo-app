@@ -20,7 +20,7 @@ print("✅ Tabele su kreirane (ili već postoje)")
 # Kreiraj admin korisnika ako ne postoji
 print("🔧 Provera admin korisnika...")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-db_session = SessionLocal()  # 🔥 PROMENJENO: db_session umesto db
+db_session = SessionLocal()
 
 admin_user = db_session.query(User).filter(User.email == "admin@test.com").first()
 if not admin_user:
@@ -86,14 +86,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS - dozvoli specifične domene
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://cargo-frontend-8k22.onrender.com",  # Vaša trenutna Render adresa
-        "https://cargo-frontend.onrender.com",       # Možda kasnije
-        "http://localhost:5173",                     # Za lokalni razvoj
-        "https://findabite.co.za",                   # Vaš budući domen
-        "https://www.findabite.co.za",               # Vaš budući domen sa www
+        "https://cargo-frontend.onrender.com",
+        "https://cargo-frontend-8k22.onrender.com",
+        "http://localhost:5173",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -224,7 +224,7 @@ async def websocket_notifications(websocket: WebSocket, user_id: int):
 app.include_router(auth.router)
 app.include_router(shipments.router)
 app.include_router(notifications.router)
-app.include_router(admin.router)  # 🔥 Ovo je import router-a, ne korisnika
+app.include_router(admin.router)
 app.include_router(reviews.router)
 app.include_router(chat.router)
 
