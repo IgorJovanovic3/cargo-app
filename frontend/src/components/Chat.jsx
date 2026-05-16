@@ -1,10 +1,32 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import api from '../services/api'
 
-// WebSocket URL za Render
 const WS_URL = window.location.protocol === 'https:' 
   ? 'wss://cargo-backend-mqx7.onrender.com' 
   : 'ws://localhost:8000'
+
+// Zvuk za notifikacije (Web Audio API)
+const playNotificationSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+    
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+    
+    oscillator.frequency.value = 880
+    gainNode.gain.value = 0.2
+    
+    oscillator.start()
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3)
+    oscillator.stop(audioContext.currentTime + 0.3)
+    
+    setTimeout(() => audioContext.close(), 400)
+  } catch(e) {
+    console.log('Audio error:', e)
+  }
+}
 
 function Chat({ shipment, currentUser }) {
   const [messages, setMessages] = useState([])
@@ -14,26 +36,34 @@ function Chat({ shipment, currentUser }) {
   const [isConnected, setIsConnected] = useState(false)
   const messagesEndRef = useRef(null)
   const wsRef = useRef(null)
+  
+  // Čuvamo trenutni shipment ID da bismo filterisali poruke
+  const currentShipmentIdRef = useRef(shipment?.id)
 
-  // Dohvati poruke i postavi WebSocket
+  const fetchMessages = useCallback(async () => {
+    if (!shipment?.id) return
+    try {
+      const res = await api.get(`/chat/messages/${shipment.id}`)
+      setMessages(res.data)
+      const unread = res.data.filter(m => !m.is_read && m.sender_id !== currentUser?.id).length
+      setUnreadCount(unread)
+    } catch (err) {
+      console.error('Greška:', err)
+    }
+  }, [shipment?.id, currentUser?.id])
+
+  useEffect(() => {
+    fetchMessages()
+  }, [fetchMessages])
+
+  // WebSocket konekcija
   useEffect(() => {
     if (!shipment?.id || !currentUser?.id) return
 
-    const fetchMessages = async () => {
-      try {
-        const res = await api.get(`/chat/messages/${shipment.id}`)
-        setMessages(res.data)
-        const unread = res.data.filter(m => !m.is_read && m.sender_id !== currentUser.id).length
-        setUnreadCount(unread)
-      } catch (err) {
-        console.error('Greška pri dohvatanju poruka:', err)
-      }
-    }
-    
-    fetchMessages()
+    // Ažuriramo trenutni shipment ID
+    currentShipmentIdRef.current = shipment.id
 
-    // Zatvori postojeći WebSocket ako postoji
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.close()
     }
 
@@ -41,61 +71,81 @@ function Chat({ shipment, currentUser }) {
     wsRef.current = socket
     
     socket.onopen = () => {
-      console.log('💬 Chat WebSocket connected')
+      console.log(`✅ Chat CONNECTED - shipment ${shipment.id}`)
       setIsConnected(true)
     }
     
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
+        console.log(`📨 Primljena poruka:`, data)
+        
+        // 🔥 FILTER: Prikazujemo SAMO poruke za trenutni shipment
+        const messageShipmentId = data.shipment_id || shipment.id
+        
+        if (messageShipmentId !== currentShipmentIdRef.current) {
+          console.log(`❌ IGNORIŠEM poruku za drugu pošiljku ${messageShipmentId} (trenutni: ${currentShipmentIdRef.current})`)
+          return
+        }
+        
         if (data.type === 'new_message') {
-          setMessages(prev => [...prev, {
-            id: Date.now(),
+          // Ignorišemo sopstvene poruke
+          if (data.sender_id === currentUser.id) {
+            console.log(`⏭️ Ignorišem sopstvenu poruku`)
+            return
+          }
+          
+          console.log(`✅ PRIMAM poruku za shipment ${shipment.id}`)
+          
+          const newMsg = {
+            id: data.message_id || Date.now(),
             sender_id: data.sender_id,
             sender_name: data.sender_name,
             message: data.message,
-            created_at: data.timestamp,
+            created_at: data.timestamp || new Date().toISOString(),
             is_read: 0
-          }])
+          }
           
-          if (data.sender_id !== currentUser.id) {
-            setUnreadCount(prev => prev + 1)
-            
-            // Browser notifikacija
-            if (Notification.permission === 'granted') {
-              new Notification('💬 Nova poruka', {
-                body: `${data.sender_name || 'Neko'} vam je poslao poruku za pošiljku #${shipment.id}`
-              })
-            }
+          setMessages(prev => [...prev, newMsg])
+          setUnreadCount(prev => prev + 1)
+          
+          // 🔔 ZVUK
+          playNotificationSound()
+          
+          // Browser notifikacija
+          if (Notification.permission === 'granted') {
+            new Notification('💬 Nova poruka', {
+              body: `${data.sender_name || 'Neko'} vam je poslao poruku za pošiljku #${shipment.id}`
+            })
           }
         }
+        
       } catch (err) {
-        console.error('Error parsing message:', err)
+        console.error('Error:', err)
       }
     }
     
     socket.onerror = (error) => {
-      console.error('Chat WebSocket error:', error)
+      console.error('WebSocket error:', error)
       setIsConnected(false)
     }
     
     socket.onclose = () => {
-      console.log('💬 Chat WebSocket closed')
+      console.log(`❌ Chat DISCONNECTED - shipment ${shipment.id}`)
       setIsConnected(false)
     }
     
     setWs(socket)
     
     return () => {
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.close()
       }
     }
   }, [shipment?.id, currentUser?.id])
 
-  // Označi poruke kao pročitane
   const markMessagesAsRead = async () => {
-    if (unreadCount > 0) {
+    if (unreadCount > 0 && shipment?.id) {
       try {
         await api.post(`/chat/mark-read/${shipment.id}`)
         setUnreadCount(0)
@@ -106,7 +156,6 @@ function Chat({ shipment, currentUser }) {
     }
   }
 
-  // Auto-scroll na dno
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -114,15 +163,28 @@ function Chat({ shipment, currentUser }) {
   const sendMessage = () => {
     if (!newMessage.trim()) return
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket nije povezan')
-      alert('Trenutno nema veze sa chat serverom. Pokušajte ponovo.')
+      alert('Nema veze sa serverom')
       return
     }
-    ws.send(JSON.stringify({ type: 'message', message: newMessage }))
+    
+    const messageText = newMessage.trim()
+    
+    // Optimistic update - odmah prikaži sopstvenu poruku
+    const tempMessage = {
+      id: Date.now(),
+      sender_id: currentUser.id,
+      sender_name: currentUser.full_name,
+      message: messageText,
+      created_at: new Date().toISOString(),
+      is_read: 1
+    }
+    
+    setMessages(prev => [...prev, tempMessage])
     setNewMessage('')
+    
+    ws.send(JSON.stringify({ type: 'message', message: messageText }))
   }
 
-  // Zahtev za dozvolu za notifikacije
   useEffect(() => {
     if (Notification.permission === 'default') {
       Notification.requestPermission()
@@ -137,7 +199,8 @@ function Chat({ shipment, currentUser }) {
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
-      border: '1px solid #eef2f6'
+      border: '1px solid #eef2f6',
+      marginBottom: '16px'
     }}>
       <div 
         onClick={markMessagesAsRead}
@@ -155,22 +218,12 @@ function Chat({ shipment, currentUser }) {
         <span>💬 Chat o pošiljci #{shipment?.id}</span>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {!isConnected && (
-            <span style={{
-              background: '#ff4757',
-              borderRadius: '20px',
-              padding: '2px 8px',
-              fontSize: '0.6rem'
-            }}>
+            <span style={{ background: '#ff4757', borderRadius: '20px', padding: '2px 8px', fontSize: '0.6rem' }}>
               🔌 offline
             </span>
           )}
           {unreadCount > 0 && (
-            <span style={{
-              background: '#ff4757',
-              borderRadius: '20px',
-              padding: '2px 10px',
-              fontSize: '0.7rem'
-            }}>
+            <span style={{ background: '#ff4757', borderRadius: '20px', padding: '2px 10px', fontSize: '0.7rem' }}>
               {unreadCount} novih
             </span>
           )}
@@ -192,7 +245,7 @@ function Chat({ shipment, currentUser }) {
         ) : (
           messages.map((msg, idx) => (
             <div
-              key={idx}
+              key={msg.id || idx}
               style={{
                 alignSelf: msg.sender_id === currentUser?.id ? 'flex-end' : 'flex-start',
                 background: msg.sender_id === currentUser?.id ? '#667eea' : '#f0f4ff',
@@ -209,9 +262,6 @@ function Chat({ shipment, currentUser }) {
               <div>{msg.message}</div>
               <div style={{ fontSize: '0.6rem', marginTop: '4px', opacity: 0.7 }}>
                 {new Date(msg.created_at).toLocaleTimeString('sr-RS')}
-                {!msg.is_read && msg.sender_id !== currentUser?.id && (
-                  <span style={{ marginLeft: '8px', color: '#667eea' }}>●</span>
-                )}
               </div>
             </div>
           ))
