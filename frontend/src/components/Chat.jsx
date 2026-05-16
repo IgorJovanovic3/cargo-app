@@ -1,15 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 
+// WebSocket URL za Render
+const WS_URL = window.location.protocol === 'https:' 
+  ? 'wss://cargo-backend-mqx7.onrender.com' 
+  : 'ws://localhost:8000'
+
 function Chat({ shipment, currentUser }) {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [ws, setWs] = useState(null)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [isConnected, setIsConnected] = useState(false)
   const messagesEndRef = useRef(null)
+  const wsRef = useRef(null)
 
   // Dohvati poruke i postavi WebSocket
   useEffect(() => {
+    if (!shipment?.id || !currentUser?.id) return
+
     const fetchMessages = async () => {
       try {
         const res = await api.get(`/chat/messages/${shipment.id}`)
@@ -23,46 +32,66 @@ function Chat({ shipment, currentUser }) {
     
     fetchMessages()
 
-    const socket = new WebSocket(`ws://localhost:8000/chat/ws/${shipment.id}/${currentUser.id}`)
+    // Zatvori postojeći WebSocket ako postoji
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.close()
+    }
+
+    const socket = new WebSocket(`${WS_URL}/chat/ws/${shipment.id}/${currentUser.id}`)
+    wsRef.current = socket
     
-    socket.onopen = () => console.log('💬 Chat WebSocket connected')
+    socket.onopen = () => {
+      console.log('💬 Chat WebSocket connected')
+      setIsConnected(true)
+    }
     
     socket.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      if (data.type === 'new_message') {
-        setMessages(prev => [...prev, {
-          id: Date.now(),
-          sender_id: data.sender_id,
-          sender_name: data.sender_name,
-          message: data.message,
-          created_at: data.timestamp,
-          is_read: 0
-        }])
-        
-        if (data.sender_id !== currentUser.id) {
-          setUnreadCount(prev => prev + 1)
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'new_message') {
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            sender_id: data.sender_id,
+            sender_name: data.sender_name,
+            message: data.message,
+            created_at: data.timestamp,
+            is_read: 0
+          }])
           
-          // Browser notifikacija
-          if (Notification.permission === 'granted') {
-            new Notification('💬 Nova poruka', {
-              body: `${data.sender_name || 'Neko'} vam je poslao poruku za pošiljku #${shipment.id}`
-            })
+          if (data.sender_id !== currentUser.id) {
+            setUnreadCount(prev => prev + 1)
+            
+            // Browser notifikacija
+            if (Notification.permission === 'granted') {
+              new Notification('💬 Nova poruka', {
+                body: `${data.sender_name || 'Neko'} vam je poslao poruku za pošiljku #${shipment.id}`
+              })
+            }
           }
         }
+      } catch (err) {
+        console.error('Error parsing message:', err)
       }
     }
     
-    socket.onerror = (error) => console.error('Chat WebSocket error:', error)
-    socket.onclose = () => console.log('💬 Chat WebSocket closed')
+    socket.onerror = (error) => {
+      console.error('Chat WebSocket error:', error)
+      setIsConnected(false)
+    }
+    
+    socket.onclose = () => {
+      console.log('💬 Chat WebSocket closed')
+      setIsConnected(false)
+    }
     
     setWs(socket)
     
     return () => {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.close()
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close()
       }
     }
-  }, [shipment.id, currentUser.id])
+  }, [shipment?.id, currentUser?.id])
 
   // Označi poruke kao pročitane
   const markMessagesAsRead = async () => {
@@ -83,7 +112,12 @@ function Chat({ shipment, currentUser }) {
   }, [messages])
 
   const sendMessage = () => {
-    if (!newMessage.trim() || !ws || ws.readyState !== WebSocket.OPEN) return
+    if (!newMessage.trim()) return
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket nije povezan')
+      alert('Trenutno nema veze sa chat serverom. Pokušajte ponovo.')
+      return
+    }
     ws.send(JSON.stringify({ type: 'message', message: newMessage }))
     setNewMessage('')
   }
@@ -118,17 +152,29 @@ function Chat({ shipment, currentUser }) {
           cursor: 'pointer'
         }}
       >
-        <span>💬 Chat o pošiljci #{shipment.id}</span>
-        {unreadCount > 0 && (
-          <span style={{
-            background: '#ff4757',
-            borderRadius: '20px',
-            padding: '2px 10px',
-            fontSize: '0.7rem'
-          }}>
-            {unreadCount} novih
-          </span>
-        )}
+        <span>💬 Chat o pošiljci #{shipment?.id}</span>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {!isConnected && (
+            <span style={{
+              background: '#ff4757',
+              borderRadius: '20px',
+              padding: '2px 8px',
+              fontSize: '0.6rem'
+            }}>
+              🔌 offline
+            </span>
+          )}
+          {unreadCount > 0 && (
+            <span style={{
+              background: '#ff4757',
+              borderRadius: '20px',
+              padding: '2px 10px',
+              fontSize: '0.7rem'
+            }}>
+              {unreadCount} novih
+            </span>
+          )}
+        </div>
       </div>
       
       <div style={{
@@ -141,16 +187,16 @@ function Chat({ shipment, currentUser }) {
       }}>
         {messages.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
-            Nema poruka. Započnite razgovor!
+            💬 Nema poruka. Započnite razgovor!
           </div>
         ) : (
           messages.map((msg, idx) => (
             <div
               key={idx}
               style={{
-                alignSelf: msg.sender_id === currentUser.id ? 'flex-end' : 'flex-start',
-                background: msg.sender_id === currentUser.id ? '#667eea' : '#f0f4ff',
-                color: msg.sender_id === currentUser.id ? 'white' : '#333',
+                alignSelf: msg.sender_id === currentUser?.id ? 'flex-end' : 'flex-start',
+                background: msg.sender_id === currentUser?.id ? '#667eea' : '#f0f4ff',
+                color: msg.sender_id === currentUser?.id ? 'white' : '#333',
                 padding: '8px 12px',
                 borderRadius: '12px',
                 maxWidth: '70%',
@@ -158,12 +204,12 @@ function Chat({ shipment, currentUser }) {
               }}
             >
               <div style={{ fontSize: '0.7rem', marginBottom: '4px', opacity: 0.7 }}>
-                {msg.sender_name || (msg.sender_id === currentUser.id ? 'Vi' : 'Vozač')}
+                {msg.sender_name || (msg.sender_id === currentUser?.id ? 'Vi' : 'Vozač')}
               </div>
               <div>{msg.message}</div>
               <div style={{ fontSize: '0.6rem', marginTop: '4px', opacity: 0.7 }}>
                 {new Date(msg.created_at).toLocaleTimeString('sr-RS')}
-                {!msg.is_read && msg.sender_id !== currentUser.id && (
+                {!msg.is_read && msg.sender_id !== currentUser?.id && (
                   <span style={{ marginLeft: '8px', color: '#667eea' }}>●</span>
                 )}
               </div>
@@ -179,16 +225,27 @@ function Chat({ shipment, currentUser }) {
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-          placeholder="Napišite poruku..."
+          placeholder={isConnected ? "Napišite poruku..." : "Čekam konekciju..."}
+          disabled={!isConnected}
           style={{
             flex: 1,
             padding: '10px 12px',
             border: '1px solid #eef2f6',
             borderRadius: '24px',
-            outline: 'none'
+            outline: 'none',
+            background: isConnected ? 'white' : '#f5f5f5'
           }}
         />
-        <button onClick={sendMessage} style={{ width: 'auto', padding: '8px 20px', borderRadius: '24px' }}>
+        <button 
+          onClick={sendMessage} 
+          disabled={!isConnected}
+          style={{ 
+            width: 'auto', 
+            padding: '8px 20px', 
+            borderRadius: '24px',
+            opacity: isConnected ? 1 : 0.5
+          }}
+        >
           Pošalji
         </button>
       </div>
