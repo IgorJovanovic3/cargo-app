@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-// KORISTI TAČNU ADRESU TVOG BACKEND-A
+// KORISTI RENDER BACKEND ADRESU
 const API_URL = 'https://cargo-backend-mqx7.onrender.com'
 
 const api = axios.create({
@@ -8,7 +8,6 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: false,
 })
 
 // Interceptor za dodavanje tokena
@@ -18,7 +17,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`)
+    console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`)
     return config
   },
   (error) => Promise.reject(error)
