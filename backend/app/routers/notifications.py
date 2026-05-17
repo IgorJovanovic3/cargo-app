@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
 from app.models import User, Notification
-from app.schemas import Notification as NotificationSchema, NotificationCreate
+from app.schemas import Notification as NotificationSchema
+from app.schemas import NotificationCreate
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
