@@ -1,31 +1,18 @@
 from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
-from typing import List, Optional
-from enum import Enum
 
-# Enums
-class UserType(str, Enum):
-    CLIENT = "client"
-    DRIVER = "driver"
-    ADMIN = "admin"
+# ========== USER SCHEMAS ==========
 
-class ShipmentStatus(str, Enum):
-    PENDING = "pending"
-    ACCEPTED = "accepted"
-    PICKED_UP = "picked_up"
-    IN_TRANSIT = "in_transit"
-    DELIVERED = "delivered"
-    CANCELLED = "cancelled"
-
-# User schemas
-class UserCreate(BaseModel):
+class UserBase(BaseModel):
     email: str
-    password: str
     full_name: str
     phone: str
-    user_type: UserType
-# Samo za firme
-    is_company: Optional[bool] = False
+
+class UserCreate(UserBase):
+    password: str
+    user_type: str = "client"
+    is_company: Optional[int] = 0
     company_name: Optional[str] = None
     company_pib: Optional[str] = None
     company_mb: Optional[str] = None
@@ -36,152 +23,155 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
-class UserResponse(BaseModel):
+class UserResponse(UserBase):
     id: int
-    email: str
-    full_name: str
-    phone: str
-    user_type: UserType
+    user_type: str
     is_active: int
-    created_at: datetime
-# Samo za firme    
-    is_company: int
+    is_company: Optional[int] = 0
     company_name: Optional[str] = None
-    company_pib: Optional[str] = None
-    company_mb: Optional[str] = None
-    company_address: Optional[str] = None
-    company_tax_number: Optional[str] = None
-    
+    tokens: Optional[float] = 0.0
+    created_at: datetime
+
     class Config:
         from_attributes = True
 
 class Token(BaseModel):
     access_token: str
-    token_type: str
+    token_type: str = "bearer"
     user: UserResponse
 
-class TokenData(BaseModel):
-    email: Optional[str] = None
+# ========== DRIVER PROFILE SCHEMAS ==========
 
-# DriverProfile schemas
-class DriverProfileCreate(BaseModel):
-    vehicle_type: str
-    vehicle_plate: str
-    max_load_kg: float
-
-class DriverProfileResponse(BaseModel):
-    id: int
-    user_id: int
+class DriverProfileBase(BaseModel):
     vehicle_type: Optional[str] = None
+    vehicle_subtype: Optional[str] = None
+    fuel_type: Optional[str] = None
+    vehicle_year: Optional[int] = None
     vehicle_plate: Optional[str] = None
     max_load_kg: Optional[float] = None
+    is_available: Optional[int] = 1
+
+class DriverProfileCreate(DriverProfileBase):
+    pass
+
+class DriverProfileResponse(DriverProfileBase):
+    id: int
+    user_id: int
     current_latitude: Optional[float] = None
     current_longitude: Optional[float] = None
-    is_available: int
     last_location_update: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
-# Shipment schemas
-class ShipmentCreate(BaseModel):
+# ========== SHIPMENT SCHEMAS ==========
+
+class ShipmentBase(BaseModel):
     pickup_address: str
     pickup_lat: float
-    pickup_lng: float
+    pickup_long: float
     delivery_address: str
     delivery_lat: float
-    delivery_lng: float
+    delivery_long: float
     cargo_description: str
     weight_kg: Optional[float] = None
     dimensions: Optional[str] = None
     price: float
     is_urgent: Optional[bool] = False
 
-class ShipmentUpdate(BaseModel):
-    status: Optional[ShipmentStatus] = None
-    driver_id: Optional[int] = None
+class ShipmentCreate(ShipmentBase):
+    pass
 
-class ShipmentResponse(BaseModel):
+class ShipmentUpdate(BaseModel):
+    pickup_address: Optional[str] = None
+    delivery_address: Optional[str] = None
+    cargo_description: Optional[str] = None
+    weight_kg: Optional[float] = None
+    dimensions: Optional[str] = None
+    price: Optional[float] = None
+    is_urgent: Optional[bool] = None
+
+class ShipmentStatusUpdate(BaseModel):
+    status: str
+
+class ShipmentResponse(ShipmentBase):
     id: int
     client_id: int
     driver_id: Optional[int] = None
-    pickup_address: str
-    pickup_lat: float
-    pickup_lng: float
-    delivery_address: str
-    delivery_lat: float
-    delivery_lng: float
-    cargo_description: str
-    weight_kg: Optional[float] = None
-    dimensions: Optional[str] = None
-    status: ShipmentStatus
-    price: float
+    status: str
+    qr_code: Optional[str] = None
+    signature: Optional[str] = None
+    signature_date: Optional[datetime] = None
     created_at: datetime
     accepted_at: Optional[datetime] = None
     picked_up_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
-class ShipmentListResponse(BaseModel):
-    shipments: list[ShipmentResponse]
-    total: int
+# ========== NOTIFICATION SCHEMAS ==========
 
-# Location schemas
-class LocationUpdate(BaseModel):
-    shipment_id: int
-    lat: float
-    lng: float
-
-# Notification schemas
-class NotificationResponse(BaseModel):
-    id: int
-    user_id: int
+class NotificationBase(BaseModel):
     title: str
     message: str
     type: Optional[str] = None
-    is_read: int
     related_shipment_id: Optional[int] = None
+
+class NotificationCreate(NotificationBase):
+    user_id: int
+
+class Notification(NotificationBase):
+    id: int
+    user_id: int
+    is_read: int = 0
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
-# Review schemas
-class ReviewCreate(BaseModel):
-    rating: int  # 1-5
+# ========== REVIEW SCHEMAS ==========
+
+class ReviewBase(BaseModel):
+    rating: int
     comment: Optional[str] = None
 
-class ReviewResponse(BaseModel):
+class ReviewCreate(ReviewBase):
+    pass
+
+class ReviewResponse(ReviewBase):
     id: int
     shipment_id: int
     reviewer_id: int
-    driver_id: int
-    rating: int
-    comment: Optional[str] = None
+    driver_id: Optional[int] = None
+    client_id: Optional[int] = None
+    review_type: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
 class DriverRatingResponse(BaseModel):
-    driver_id: int
-    driver_name: str
     average_rating: float
     total_reviews: int
-    reviews: List[ReviewResponse]
+    histogram: dict
 
-class ChatMessageCreate(BaseModel):
+# ========== CHAT SCHEMAS ==========
+
+class ChatMessageBase(BaseModel):
     message: str
 
-class ChatMessageResponse(BaseModel):
+class ChatMessageCreate(ChatMessageBase):
+    shipment_id: int
+    sender_id: int
+
+class ChatMessageResponse(ChatMessageBase):
     id: int
     shipment_id: int
     sender_id: int
-    message: str
+    sender_name: Optional[str] = None
     is_read: int
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
