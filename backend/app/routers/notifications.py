@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models import User, Notification
 from app.schemas import Notification as NotificationSchema
 from app.schemas import NotificationCreate
-from app.auth import get_current_user
+from app.dependencies import get_current_user  # <--- OVO JE ISPRAVAN IMPORT
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
