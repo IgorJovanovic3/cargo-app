@@ -175,3 +175,10 @@ class ChatMessageResponse(ChatMessageBase):
 
     class Config:
         from_attributes = True
+
+# ========== LOCATION SCHEMA ==========
+
+class LocationUpdate(BaseModel):
+    lat: float
+    lng: float
+    shipment_id: int
