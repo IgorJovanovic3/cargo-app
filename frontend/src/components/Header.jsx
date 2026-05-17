@@ -29,7 +29,6 @@ function Header() {
           </Link>
         </div>
 
-        {/* Hamburger dugme - samo na mobilnom/tabletu */}
         <button 
           className="mobile-menu-btn"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -38,7 +37,6 @@ function Header() {
           {mobileMenuOpen ? '✕' : '☰'}
         </button>
 
-        {/* Navigacija - desktop i mobile */}
         <nav 
           className={`nav ${mobileMenuOpen ? 'mobile-open' : ''}`}
           style={{
@@ -60,6 +58,7 @@ function Header() {
               </div>
 
               <div style={styles.navLinks}>
+                {/* 🔔 ZVONCE - VRAĆENO I VIDLJIVO */}
                 <NotificationBell userId={user.id} />
                 
                 {user.user_type === 'client' && (
@@ -80,7 +79,6 @@ function Header() {
               </div>
 
               <div style={styles.rightGroup}>
-                {/* Jezički switcher */}
                 <div style={styles.languageSwitcher}>
                   <button 
                     onClick={() => changeLanguage('sr')}
@@ -104,7 +102,6 @@ function Header() {
                   </button>
                 </div>
 
-                {/* Logout dugme */}
                 <button onClick={handleLogout} style={styles.logoutBtn}>
                   🚪 {t('odjavi_se')}
                 </button>
@@ -148,7 +145,6 @@ function Header() {
         </nav>
       </header>
 
-      {/* Ako je mobile menu otvoren, klik bilo gde zatvara */}
       {mobileMenuOpen && (
         <div 
           style={styles.overlay}
@@ -158,8 +154,6 @@ function Header() {
     </>
   )
 }
-
-// ==================== STILOVI ====================
 
 const styles = {
   header: {
@@ -295,8 +289,6 @@ const styles = {
   },
 }
 
-// Dodajemo media query za responsive (preko CSS ili inline)
-// Ovo dodajemo u <style> tag
 const styleSheet = document.createElement("style")
 styleSheet.textContent = `
   @media (max-width: 900px) {
@@ -335,7 +327,6 @@ styleSheet.textContent = `
     }
   }
   
-  /* Hover efekti */
   .nav-link:hover {
     background: #f0f4ff !important;
     color: #667eea !important;

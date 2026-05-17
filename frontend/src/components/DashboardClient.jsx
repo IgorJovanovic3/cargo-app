@@ -14,7 +14,10 @@ import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import { useTranslation } from 'react-i18next'
 
-// Fix za marker ikone u Leaflet-u
+const WS_URL = window.location.protocol === 'https:' 
+  ? 'wss://cargo-backend-mqx7.onrender.com' 
+  : 'ws://localhost:8000'
+
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -41,7 +44,10 @@ function DashboardClient() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [shipmentToEdit, setShipmentToEdit] = useState(null)
   const [clientRating, setClientRating] = useState(null)
+  const [availableDrivers, setAvailableDrivers] = useState([])
+  const [showDriversMap, setShowDriversMap] = useState(false)
   const mapRef = useRef(null)
+  const wsRef = useRef(null)
 
   const exportToExcel = () => {
     const data = shipments.map(s => ({
@@ -64,6 +70,21 @@ function DashboardClient() {
     const blob = new Blob([excelBuffer], { type: 'application/octet-stream' })
     saveAs(blob, `${t('excel_filename')}_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
+
+  const fetchAvailableDrivers = async () => {
+    try {
+      const res = await api.get('/drivers/available')
+      setAvailableDrivers(res.data)
+    } catch (err) {
+      console.error('Greška pri dohvatanju vozača:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchAvailableDrivers()
+    const interval = setInterval(fetchAvailableDrivers, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -132,9 +153,15 @@ function DashboardClient() {
       return
     }
 
-    const ws = new WebSocket(`ws://localhost:8000/ws/client/${user.id}`)
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.close()
+    }
+
+    const ws = new WebSocket(`${WS_URL}/ws/client/${user.id}`)
+    wsRef.current = ws
     
-    ws.onopen = () => console.log('✅ WebSocket connected as client')
+    ws.onopen = () => console.log('✅ Client WebSocket connected')
+    
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
@@ -148,12 +175,18 @@ function DashboardClient() {
         console.error('Error parsing WebSocket message:', err)
       }
     }
-    ws.onerror = (error) => console.error('WebSocket error:', error)
-    ws.onclose = () => console.log('WebSocket closed')
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error)
+    }
+    
+    ws.onclose = () => {
+      console.log('Client WebSocket closed')
+    }
     
     return () => {
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close()
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close()
       }
     }
   }, [user, selectedShipment, followDriver])
@@ -213,7 +246,7 @@ function DashboardClient() {
   }
 
   return (
-    <div className="dashboard-client">
+    <div className="dashboard-client" onClick={(e) => e.stopPropagation()}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h1 style={{ margin: 0 }}>{t('client_dashboard')}</h1>
         <button 
@@ -278,6 +311,47 @@ function DashboardClient() {
               ))}
             </select>
           </div>
+          
+          {/* Dugme za mapu dostupnih vozača */}
+          <button
+            onClick={() => setShowDriversMap(!showDriversMap)}
+            style={{
+              width: 'auto',
+              marginBottom: '1rem',
+              background: showDriversMap ? '#dc3545' : '#17a2b8'
+            }}
+          >
+            {showDriversMap ? '📋 Sakrij mapu' : '🗺️ Prikaži dostupne vozače na mapi'}
+          </button>
+
+          {/* Mapa dostupnih vozača */}
+          {showDriversMap && (
+            <div style={{ marginBottom: '1rem', height: '350px', borderRadius: '12px', overflow: 'hidden' }}>
+              <MapContainer
+                center={[44.7866, 20.4489]}
+                zoom={13}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                />
+                {availableDrivers.map(driver => (
+                  <Marker
+                    key={driver.id}
+                    position={[driver.current_latitude || 44.7866, driver.current_longitude || 20.4489]}
+                  >
+                    <Popup>
+                      <strong>{driver.full_name}</strong><br />
+                      🚗 {driver.vehicle_type || 'Nepoznato'}<br />
+                      {driver.vehicle_plate && <>🔢 {driver.vehicle_plate}<br /></>}
+                      {driver.max_load_kg && <>⚖️ Do {driver.max_load_kg} kg</>}
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            </div>
+          )}
           
           {shipments.length === 0 ? (
             <p>{t('no_shipments')} <a href="/nova-posiljka">{t('create_new')}</a></p>

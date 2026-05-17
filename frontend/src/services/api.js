@@ -15,10 +15,6 @@ api.interceptors.request.use(
     const token = localStorage.getItem('access_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
-      // Opciono: loguj prvih 20 karaktera tokena za proveru
-      console.log(`🔑 Token: ${token.substring(0, 20)}...`)
-    } else {
-      console.warn('⚠️ Nema tokena u localStorage')
     }
     console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`)
     return config
@@ -26,24 +22,37 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Interceptor za obradu 401
+// Interceptor za obradu 401 - SAMO ZA API POZIVE, NE ZA WEBSOCKET
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.error('❌ 401 Unauthorized - brišem token i redirektujem na login')
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+    // IGNORIŠI 401 ako nema tokena (to je ok)
+    if (!localStorage.getItem('access_token')) {
+      return Promise.reject(error)
     }
+    
+    // SAMO ako je 401 i to je baš API poziv (ne WebSocket)
+    if (error.response?.status === 401) {
+      console.warn('⚠️ 401 Unauthorized - čekam 2 sekunde pre logout-a')
+      
+      // Ne radi logout odmah! Sačekaj malo da vidiš da li je stvarno potrebno
+      setTimeout(() => {
+        // Proveri da li i dalje ima token (možda je već osvežen)
+        if (localStorage.getItem('access_token')) {
+          console.log('✅ Token još uvek postoji, ne radim logout')
+          return
+        }
+        
+        // Tek onda logout
+        console.error('❌ Logout zbog 401')
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('user')
+        window.location.href = '/login'
+      }, 2000)
+    }
+    
     return Promise.reject(error)
   }
 )
-
-// Dodatna funkcija za proveru autentifikacije
-export const isAuthenticated = () => {
-  const token = localStorage.getItem('access_token')
-  return !!token && token.length > 0
-}
 
 export default api

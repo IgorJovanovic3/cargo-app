@@ -3,45 +3,63 @@ import api from '../services/api'
 
 function NotificationBell({ userId }) {
   const [notifications, setNotifications] = useState([])
-  const [showDropdown, setShowDropdown] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  const dropdownRef = useRef(null)
+  const [isOpen, setIsOpen] = useState(false)
+  const wsRef = useRef(null)
 
   const fetchNotifications = async () => {
-    if (!userId) return
     try {
       const res = await api.get('/notifications/')
-      console.log('📩 Dohvaćene notifikacije:', res.data)
       setNotifications(res.data)
-      const count = res.data.filter(n => !n.is_read).length
-      setUnreadCount(count)
-      console.log(`🔔 Nepročitanih: ${count}`)
+      const unread = res.data.filter(n => !n.is_read).length
+      setUnreadCount(unread)
     } catch (err) {
-      console.error('Greška:', err)
+      console.error('Greška pri dohvatanju notifikacija:', err)
     }
   }
 
   useEffect(() => {
     if (!userId) return
-    fetchNotifications()
-    const interval = setInterval(fetchNotifications, 3000)
-    return () => clearInterval(interval)
-  }, [userId])
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false)
+    fetchNotifications()
+
+    // WebSocket za real-time notifikacije
+    const WS_URL = window.location.protocol === 'https:' 
+      ? 'wss://cargo-backend-mqx7.onrender.com' 
+      : 'ws://localhost:8000'
+    
+    const ws = new WebSocket(`${WS_URL}/ws/notifications/${userId}`)
+    wsRef.current = ws
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === 'new_notification') {
+          // Dodaj novu notifikaciju na početak liste
+          setNotifications(prev => [data.notification, ...prev])
+          setUnreadCount(prev => prev + 1)
+          
+          // Zvuk za notifikaciju
+          const audio = new Audio('/notification.mp3')
+          audio.play().catch(e => console.log('Audio error:', e))
+        }
+      } catch (err) {
+        console.error('WebSocket notifikacija error:', err)
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
-  const markAsRead = async (id) => {
+    return () => {
+      if (wsRef.current) wsRef.current.close()
+    }
+  }, [userId])
+
+  const markAsRead = async (notificationId) => {
     try {
-      await api.post(`/notifications/${id}/read`)
-      fetchNotifications()
+      await api.post(`/notifications/${notificationId}/read`)
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, is_read: 1 } : n)
+      )
+      setUnreadCount(prev => Math.max(0, prev - 1))
     } catch (err) {
       console.error(err)
     }
@@ -50,130 +68,145 @@ function NotificationBell({ userId }) {
   const markAllAsRead = async () => {
     try {
       await api.post('/notifications/mark-all-read')
-      fetchNotifications()
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })))
+      setUnreadCount(0)
     } catch (err) {
       console.error(err)
     }
   }
 
-  const getIcon = (type) => {
-    if (type?.includes('accepted')) return '✅'
-    if (type?.includes('picked_up')) return '📦'
-    if (type?.includes('in_transit')) return '🚚'
-    if (type?.includes('delivered')) return '🏁'
-    if (type?.includes('cancelled')) return '❌'
-    return '🔔'
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'new_message': return '💬'
+      case 'status_change': return '📦'
+      case 'new_shipment': return '➕'
+      case 'shipment_accepted': return '✅'
+      default: return '🔔'
+    }
   }
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }} ref={dropdownRef}>
+    <div style={{ position: 'relative', display: 'inline-block' }}>
       <button
-        onClick={() => {
-          setShowDropdown(!showDropdown)
-          fetchNotifications()
-        }}
+        onClick={() => setIsOpen(!isOpen)}
         style={{
           background: 'none',
           border: 'none',
-          fontSize: '1.5rem',
+          fontSize: '1.3rem',
           cursor: 'pointer',
           position: 'relative',
-          padding: '0.5rem'
+          padding: '6px 8px',
+          borderRadius: '40px',
+          width: 'auto'
         }}
       >
         🔔
         {unreadCount > 0 && (
           <span style={{
             position: 'absolute',
-            top: '-2px',
-            right: '-2px',
-            background: '#dc3545',
+            top: '-4px',
+            right: '-4px',
+            background: '#ff4757',
             color: 'white',
             borderRadius: '50%',
-            width: '18px',
-            height: '18px',
-            fontSize: '0.7rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            padding: '2px 6px',
+            fontSize: '0.6rem',
+            minWidth: '16px',
+            textAlign: 'center'
           }}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
-      {showDropdown && (
-        <div style={{
-          position: 'absolute',
-          right: 0,
-          top: '40px',
-          width: '380px',
-          maxHeight: '450px',
-          overflowY: 'auto',
-          background: 'white',
-          borderRadius: '12px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-          zIndex: 1000,
-          border: '1px solid #e0e0e0'
-        }}>
+      {isOpen && (
+        <>
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 998
+            }}
+            onClick={() => setIsOpen(false)}
+          />
           <div style={{
-            padding: '12px 16px',
-            borderBottom: '1px solid #e0e0e0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            position: 'absolute',
+            top: '45px',
+            right: '0',
+            width: '320px',
+            maxHeight: '400px',
             background: 'white',
-            borderRadius: '12px 12px 0 0'
+            borderRadius: '12px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            zIndex: 999,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
           }}>
-            <strong>🔔 Notifikacije</strong>
-            {unreadCount > 0 && (
-              <button onClick={markAllAsRead} style={{
-                fontSize: '0.7rem',
-                padding: '4px 10px',
-                background: '#f0f0f0',
-                border: 'none',
-                borderRadius: '20px',
-                cursor: 'pointer'
-              }}>
-                Označi sve
-              </button>
-            )}
-          </div>
-          
-          {notifications.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
-              Nema notifikacija
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid #eef2f6',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: 'bold' }}>🔔 Notifikacije</span>
+              {unreadCount > 0 && (
+                <button 
+                  onClick={markAllAsRead}
+                  style={{
+                    width: 'auto',
+                    padding: '4px 12px',
+                    fontSize: '0.7rem',
+                    background: '#667eea',
+                    borderRadius: '20px'
+                  }}
+                >
+                  Označi sve kao pročitano
+                </button>
+              )}
             </div>
-          ) : (
-            notifications.map(notif => (
-              <div
-                key={notif.id}
-                onClick={() => markAsRead(notif.id)}
-                style={{
-                  padding: '12px 16px',
-                  borderBottom: '1px solid #f0f0f0',
-                  cursor: 'pointer',
-                  background: notif.is_read ? 'white' : '#f0f4ff'
-                }}
-              >
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <span style={{ fontSize: '1.2rem' }}>{getIcon(notif.type)}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: notif.is_read ? 'normal' : 'bold' }}>
-                      {notif.title}
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: '#555' }}>
-                      {notif.message}
-                    </div>
-                    <div style={{ fontSize: '0.65rem', color: '#999', marginTop: '4px' }}>
-                      {new Date(notif.created_at).toLocaleString('sr-RS')}
+            <div style={{ overflowY: 'auto', maxHeight: '350px' }}>
+              {notifications.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+                  📭 Nema notifikacija
+                </div>
+              ) : (
+                notifications.map(notif => (
+                  <div
+                    key={notif.id}
+                    onClick={() => markAsRead(notif.id)}
+                    style={{
+                      padding: '12px 16px',
+                      borderBottom: '1px solid #eef2f6',
+                      cursor: 'pointer',
+                      background: notif.is_read ? 'white' : '#f0f4ff',
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{getNotificationIcon(notif.type)}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: notif.is_read ? 'normal' : 'bold', fontSize: '0.85rem' }}>
+                          {notif.title}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '4px' }}>
+                          {notif.message}
+                        </div>
+                        <div style={{ fontSize: '0.6rem', color: '#999', marginTop: '4px' }}>
+                          {new Date(notif.created_at).toLocaleString('sr-RS')}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

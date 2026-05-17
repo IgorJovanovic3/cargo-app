@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import api from '../services/api'
 import Chat from '../components/Chat'
@@ -10,8 +10,23 @@ import RatingHistogram from './RatingHistogram'
 import { useTranslation } from 'react-i18next'
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Title } from 'chart.js'
 import { Line, Bar } from 'react-chartjs-2'
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Title)
+
+const WS_URL = window.location.protocol === 'https:' 
+  ? 'wss://cargo-backend-mqx7.onrender.com' 
+  : 'ws://localhost:8000'
+
+// Fix za marker ikone
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+})
 
 function DashboardDriver() {
   const { user } = useAuth()
@@ -20,7 +35,6 @@ function DashboardDriver() {
   const [myShipments, setMyShipments] = useState([])
   const [activeShipment, setActiveShipment] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [driverRating, setDriverRating] = useState(null)
   const [availablePage, setAvailablePage] = useState(1)
   const [availableTotalPages, setAvailableTotalPages] = useState(1)
   const [activeTab, setActiveTab] = useState('available')
@@ -30,6 +44,7 @@ function DashboardDriver() {
   const [tabKey, setTabKey] = useState(0)
   const [driverShipmentsByMonth, setDriverShipmentsByMonth] = useState(null)
   const [driverEarningsByMonth, setDriverEarningsByMonth] = useState(null)
+  const [showShipmentsMap, setShowShipmentsMap] = useState(false)
   
   const [showClientReviewModal, setShowClientReviewModal] = useState(false)
   const [selectedShipmentForClientReview, setSelectedShipmentForClientReview] = useState(null)
@@ -37,6 +52,9 @@ function DashboardDriver() {
   const [clientComment, setClientComment] = useState('')
   const [driverRatingData, setDriverRatingData] = useState(null)
   const [reviewedClientShipments, setReviewedClientShipments] = useState(new Set())
+  
+  const wsRef = useRef(null)
+  const locationIntervalRef = useRef(null)
 
   const fetchData = async () => {
     try {
@@ -119,54 +137,60 @@ function DashboardDriver() {
     }
   }, [myShipments])
 
+  // WebSocket za slanje lokacije
   useEffect(() => {
     if (!activeShipment || !user) return
 
-    let ws = null
-    let locationInterval = null
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.close()
+    }
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current)
+    }
 
-    const setupWebSocket = () => {
-      ws = new WebSocket(`ws://localhost:8000/ws/driver/${user.id}`)
+    const ws = new WebSocket(`${WS_URL}/ws/driver/${user.id}`)
+    wsRef.current = ws
+    
+    ws.onopen = () => {
+      console.log('✅ Driver WebSocket connected')
       
-      ws.onopen = () => {
-        console.log('✅ WebSocket connected as driver')
-        
-        if (locationInterval) clearInterval(locationInterval)
-        
-        locationInterval = setInterval(() => {
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                const locationData = {
-                  type: 'location_update',
-                  shipment_id: activeShipment.id,
-                  lat: position.coords.latitude,
-                  lng: position.coords.longitude
-                }
-                
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify(locationData))
-                }
-              },
-              (error) => console.error('Geolocation error:', error),
-              { enableHighAccuracy: true, maximumAge: 3000, timeout: 5000 }
-            )
-          }
-        }, 3000)
-      }
-      
-      ws.onerror = (error) => console.error('WebSocket error:', error)
-      ws.onclose = () => {
-        console.log('WebSocket closed')
-        if (locationInterval) clearInterval(locationInterval)
-      }
+      locationIntervalRef.current = setInterval(() => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const locationData = {
+                type: 'location_update',
+                shipment_id: activeShipment.id,
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              }
+              
+              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify(locationData))
+              }
+            },
+            (error) => console.error('Geolocation error:', error),
+            { enableHighAccuracy: true, maximumAge: 3000, timeout: 5000 }
+          )
+        }
+      }, 5000)
     }
     
-    setupWebSocket()
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error)
+    }
+    
+    ws.onclose = () => {
+      console.log('Driver WebSocket closed')
+    }
     
     return () => {
-      if (ws && ws.readyState === WebSocket.OPEN) ws.close()
-      if (locationInterval) clearInterval(locationInterval)
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close()
+      }
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current)
+      }
     }
   }, [activeShipment, user])
 
@@ -291,7 +315,7 @@ function DashboardDriver() {
   }
 
   return (
-    <div key={tabKey} style={{ padding: '0 0 1rem 0' }}>
+    <div key={tabKey} style={{ padding: '0 0 1rem 0' }} onClick={(e) => e.stopPropagation()}>
       <div style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         borderRadius: '20px',
@@ -343,7 +367,7 @@ function DashboardDriver() {
           >
             📷 {t('scan_qr')}
           </button>
-          {driverRating && driverRating.total_reviews > 0 && (
+          {driverRatingData && driverRatingData.total_reviews > 0 && (
             <div style={{
               background: 'rgba(255,255,255,0.2)',
               borderRadius: '40px',
@@ -351,10 +375,10 @@ function DashboardDriver() {
               textAlign: 'center'
             }}>
               <div style={{ color: 'white', fontWeight: 'bold' }}>
-                ⭐ {driverRating.average_rating} / 5
+                ⭐ {driverRatingData.average_rating} / 5
               </div>
               <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.7rem' }}>
-                {driverRating.total_reviews} {t('ratings')}
+                {driverRatingData.total_reviews} {t('ratings')}
               </div>
             </div>
           )}
@@ -385,7 +409,6 @@ function DashboardDriver() {
         </div>
       )}
 
-      {/* GRAFIKONI ZA VOZAČA */}
       {(driverShipmentsByMonth && driverShipmentsByMonth.labels && driverShipmentsByMonth.labels.length > 0) && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
           <div style={{ background: 'white', borderRadius: '16px', padding: '1rem' }}>
@@ -525,55 +548,114 @@ function DashboardDriver() {
           padding: '1.25rem',
           boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
         }}>
-          {availableShipments.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
-              📭 {t('no_available_shipments')}
+          {/* Dugme za prikaz mape */}
+          <button
+            onClick={() => setShowShipmentsMap(!showShipmentsMap)}
+            style={{
+              width: 'auto',
+              marginBottom: '1rem',
+              background: showShipmentsMap ? '#dc3545' : '#28a745'
+            }}
+          >
+            {showShipmentsMap ? '📋 Prikaži listu' : '🗺️ Prikaži na mapi'}
+          </button>
+
+          {/* Mapa dostupnih vožnji */}
+          {showShipmentsMap && (
+            <div style={{ marginBottom: '1rem', height: '400px', borderRadius: '12px', overflow: 'hidden' }}>
+              <MapContainer
+                center={[44.7866, 20.4489]}
+                zoom={13}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                />
+                {availableShipments.map(shipment => (
+                  <Marker
+                    key={shipment.id}
+                    position={[shipment.pickup_lat, shipment.pickup_lng]}
+                  >
+                    <Popup>
+                      <strong>#{shipment.id}</strong><br />
+                      📍 {shipment.pickup_address.substring(0, 40)}<br />
+                      🏁 {shipment.delivery_address.substring(0, 40)}<br />
+                      💰 {shipment.price} RSD<br />
+                      {shipment.is_urgent === 1 && <span>🚀 Hitno<br /></span>}
+                      <button
+                        onClick={() => handleAccept(shipment.id)}
+                        style={{
+                          marginTop: '8px',
+                          padding: '4px 12px',
+                          background: '#4caf50',
+                          borderRadius: '20px',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        ✅ Prihvati
+                      </button>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {availableShipments.map(shipment => (
-                <div key={shipment.id} style={{
-                  background: '#fafbfc',
-                  borderRadius: '16px',
-                  padding: '1rem',
-                  border: '1px solid #eef2f6',
-                  transition: 'all 0.3s',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#667eea'}
-                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#eef2f6'}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                        <strong style={{ fontSize: '1rem', color: '#333' }}>#{shipment.id}</strong>
-                        {shipment.is_urgent === 1 && (
-                          <span style={{ background: '#ff9800', color: 'white', padding: '2px 8px', borderRadius: '20px', fontSize: '0.6rem' }}>🚀</span>
-                        )}
-                      </div>
-                      <p style={{ margin: '0 0 4px 0', fontSize: '0.85rem', color: '#555' }}>
-                        📍 {shipment.pickup_address.split(',')[0]} → {shipment.delivery_address.split(',')[0]}
-                      </p>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: '#999' }}>
-                        {shipment.cargo_description.substring(0, 50)} • 💰 {shipment.price} RSD
-                        {shipment.weight_kg && ` • ⚖️ ${shipment.weight_kg} kg`}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleAccept(shipment.id)}
-                      style={{
-                        width: 'auto',
-                        padding: '8px 20px',
-                        borderRadius: '40px',
-                        fontSize: '0.8rem',
-                        background: '#4caf50'
-                      }}
-                    >
-                      ✅ {t('accept')}
-                    </button>
-                  </div>
+          )}
+
+          {/* Lista dostupnih vožnji */}
+          {!showShipmentsMap && (
+            <>
+              {availableShipments.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
+                  📭 {t('no_available_shipments')}
                 </div>
-              ))}
-            </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {availableShipments.map(shipment => (
+                    <div key={shipment.id} style={{
+                      background: '#fafbfc',
+                      borderRadius: '16px',
+                      padding: '1rem',
+                      border: '1px solid #eef2f6',
+                      transition: 'all 0.3s',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#667eea'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = '#eef2f6'}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                            <strong style={{ fontSize: '1rem', color: '#333' }}>#{shipment.id}</strong>
+                            {shipment.is_urgent === 1 && (
+                              <span style={{ background: '#ff9800', color: 'white', padding: '2px 8px', borderRadius: '20px', fontSize: '0.6rem' }}>🚀</span>
+                            )}
+                          </div>
+                          <p style={{ margin: '0 0 4px 0', fontSize: '0.85rem', color: '#555' }}>
+                            📍 {shipment.pickup_address.split(',')[0]} → {shipment.delivery_address.split(',')[0]}
+                          </p>
+                          <p style={{ margin: 0, fontSize: '0.7rem', color: '#999' }}>
+                            {shipment.cargo_description.substring(0, 50)} • 💰 {shipment.price} RSD
+                            {shipment.weight_kg && ` • ⚖️ ${shipment.weight_kg} kg`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleAccept(shipment.id)}
+                          style={{
+                            width: 'auto',
+                            padding: '8px 20px',
+                            borderRadius: '40px',
+                            fontSize: '0.8rem',
+                            background: '#4caf50'
+                          }}
+                        >
+                          ✅ {t('accept')}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
           
           {availableTotalPages > 1 && (

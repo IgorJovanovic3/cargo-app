@@ -2,10 +2,13 @@ services:
   - type: web
     name: cargo-frontend
     runtime: static
-    plan: free
-    region: frankfurt
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://cargo-backend.onrender.com
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
