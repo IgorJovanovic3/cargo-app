@@ -216,42 +216,6 @@ async def get_all_notifications(
     return notifications
 
 
-@router.get("/export/shipments/excel")
-async def export_shipments_excel(
-    status: Optional[str] = None,
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
-    admin_user: User = Depends(check_admin),
-    db: Session = Depends(get_db)
-):
-    """Export svih pošiljki u Excel format sa filtriranjem"""
-    
-    query = db.query(Shipment)
-    
-    # Filter po statusu
-    if status:
-        try:
-            query = query.filter(Shipment.status == ShipmentStatus(status))
-        except:
-            pass
-    
-    # Filter po datumu
-    if date_from:
-        try:
-            date_from_parsed = datetime.fromisoformat(date_from)
-            query = query.filter(Shipment.created_at >= date_from_parsed)
-        except:
-            pass
-    
-    if date_to:
-        try:
-            date_to_parsed = datetime.fromisoformat(date_to)
-            query = query.filter(Shipment.created_at <= date_to_parsed)
-        except:
-            pass
-    
-    shipments = query.order_by(Shipment.created_at.desc()).all()
-
 @router.get("/export/users/excel")
 async def export_users_excel(
     admin_user: User = Depends(check_admin),
@@ -281,6 +245,73 @@ async def export_users_excel(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=korisnici.xlsx"}
+    )
+
+
+@router.get("/export/shipments/excel")
+async def export_shipments_excel(
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    admin_user: User = Depends(check_admin),
+    db: Session = Depends(get_db)
+):
+    """Export svih pošiljki u Excel format sa filtriranjem"""
+    
+    query = db.query(Shipment)
+    
+    if status:
+        try:
+            query = query.filter(Shipment.status == ShipmentStatus(status))
+        except:
+            pass
+    
+    if date_from:
+        try:
+            date_from_parsed = datetime.fromisoformat(date_from)
+            query = query.filter(Shipment.created_at >= date_from_parsed)
+        except:
+            pass
+    
+    if date_to:
+        try:
+            date_to_parsed = datetime.fromisoformat(date_to)
+            query = query.filter(Shipment.created_at <= date_to_parsed)
+        except:
+            pass
+    
+    shipments = query.order_by(Shipment.created_at.desc()).all()
+    
+    data = []
+    for s in shipments:
+        client = db.query(User).filter(User.id == s.client_id).first()
+        driver = db.query(User).filter(User.id == s.driver_id).first() if s.driver_id else None
+        data.append({
+            "ID": s.id,
+            "Klijent": client.full_name if client else "",
+            "Vozač": driver.full_name if driver else "",
+            "Od": s.pickup_address,
+            "Do": s.delivery_address,
+            "Opis": s.cargo_description,
+            "Težina (kg)": s.weight_kg or "",
+            "Dimenzije": s.dimensions or "",
+            "Cena (RSD)": s.price or "",
+            "Hitno": "Da" if s.is_urgent else "Ne",
+            "Status": s.status.value if s.status else "",
+            "Kreirano": s.created_at.strftime("%d.%m.%Y %H:%M") if s.created_at else "",
+            "Dostavljeno": s.delivered_at.strftime("%d.%m.%Y %H:%M") if s.delivered_at else ""
+        })
+    
+    df = pd.DataFrame(data)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name="Pošiljke", index=False)
+    
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=posiljke.xlsx"}
     )
 
 
@@ -375,6 +406,7 @@ async def cleanup_expired_shipments(
     db.commit()
     return {"message": f"Obrisano {count} neprihvaćenih pošiljki"}
 
+
 @router.get("/stats/shipments-by-month")
 async def get_shipments_by_month(
     admin_user: User = Depends(check_admin),
@@ -384,7 +416,6 @@ async def get_shipments_by_month(
     
     shipments = db.query(Shipment).all()
     
-    # Grupiši po mesecima
     monthly_data = {}
     for s in shipments:
         month = s.created_at.strftime("%Y-%m")
@@ -392,7 +423,6 @@ async def get_shipments_by_month(
             monthly_data[month] = 0
         monthly_data[month] += 1
     
-    # Sortiraj po mesecima
     sorted_months = sorted(monthly_data.keys())
     
     return {

@@ -145,3 +145,9 @@ async def mark_messages_as_read(
     db.commit()
     
     return {"message": "Poruke označene kao pročitane"}
+
+# ========== POMOĆNA FUNKCIJA ZA MAIN.PY ==========
+
+async def handle_chat_websocket(websocket: WebSocket, shipment_id: int, user_id: int):
+    """Pomoćna funkcija za pozivanje iz main.py"""
+    await websocket_chat(websocket, shipment_id, user_id)

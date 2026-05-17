@@ -436,6 +436,13 @@ async def get_shipment_location(
     
     return {"lat": None, "lng": None, "last_update": None}
 
+def get_suggested_class(weight_kg: float, db: Session) -> str:
+    """Predlaže odgovarajuću klasu vozila na osnovu težine"""
+    pricing_options = db.query(Pricing).filter(Pricing.is_active == 1).order_by(Pricing.max_weight_kg).all()
+    for option in pricing_options:
+        if weight_kg <= option.max_weight_kg:
+            return option.vehicle_class
+    return "truck"
 
 # ========== IZRAČUN CENE ==========
 @router.post("/calculate-price")

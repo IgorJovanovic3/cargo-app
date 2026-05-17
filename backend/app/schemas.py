@@ -182,3 +182,8 @@ class LocationUpdate(BaseModel):
     lat: float
     lng: float
     shipment_id: int
+
+# ========== TOKEN DATA ==========
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
