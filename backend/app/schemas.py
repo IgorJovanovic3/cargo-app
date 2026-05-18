@@ -121,7 +121,7 @@ class NotificationBase(BaseModel):
 class NotificationCreate(NotificationBase):
     user_id: int
 
-class Notification(NotificationBase):
+class NotificationResponse(NotificationBase):
     id: int
     user_id: int
     is_read: int = 0
@@ -129,6 +129,9 @@ class Notification(NotificationBase):
 
     class Config:
         from_attributes = True
+
+# Ovo zadrži ako negde koristiš sam Notification
+Notification = NotificationResponse
 
 # ========== REVIEW SCHEMAS ==========
 
