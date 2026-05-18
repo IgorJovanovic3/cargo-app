@@ -11,13 +11,18 @@ if not DATABASE_URL:
     connect_args = {"pool_pre_ping": True}
 else:
     print("✅ DATABASE_URL found. Using PostgreSQL for production.")
+    # SQLAlchemy parametri idu u create_engine, ne u connect_args
     connect_args = {
         "sslmode": "require",
-        "pool_pre_ping": True,
-        "pool_recycle": 300,
     }
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+# Kreiraj engine - pool_pre_ping je parametar engine-a, ne connect_args
+engine = create_engine(
+    DATABASE_URL, 
+    connect_args=connect_args,
+    pool_pre_ping=True,  # Ovo je SQLAlchemy parametar
+    pool_recycle=300
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
