@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import api from '../services/api'
 
 const WS_URL = window.location.protocol === 'https:' 
-  ? 'wss://cargo-backend-mqx7.onrender.com' 
+  ? 'wss://cargo-backend-av58.onrender.com' 
   : 'ws://localhost:8000'
 
 // Zvuk za notifikacije (Web Audio API)
