@@ -91,7 +91,7 @@ app.add_middleware(
     allow_origins=[
         "https://cargo-frontend-8k22.onrender.com",
         "https://cargo-frontend.onrender.com",
-        "https://cargo-backend-av58.onrender.com",  # NOVA ADRESA
+        "https://cargo-backend-av58.onrender.com",
         "http://localhost:5173",
         "http://localhost:3000",
     ],
