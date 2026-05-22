@@ -9,7 +9,7 @@ import asyncio
 
 # ========== AUTO KREIRANJE TABELA I KORISNIKA ==========
 from app.database import SessionLocal
-from app.models import Base, User, UserType, DriverProfile, ChatMessage
+from app.models import Base, User, UserType, DriverProfile, ChatMessage, Pricing
 from passlib.context import CryptContext
 
 # Kreiraj tabele ako ne postoje
@@ -77,6 +77,24 @@ if not driver_user:
 else:
     print("✅ Test vozač već postoji")
 
+# ========== DODAJ CENOVNIK AKO NE POSTOJI ==========
+pricing = db_session.query(Pricing).first()
+if not pricing:
+    print("🔧 Dodavanje cenovnika...")
+    pricing_items = [
+        Pricing(vehicle_class="bike", name="Bicikl", price_per_km=30, price_per_kg=20, base_price=100, max_weight_kg=5, is_active=1),
+        Pricing(vehicle_class="motorcycle", name="Motocikl", price_per_km=40, price_per_kg=25, base_price=150, max_weight_kg=20, is_active=1),
+        Pricing(vehicle_class="car", name="Automobil", price_per_km=50, price_per_kg=30, base_price=200, max_weight_kg=100, is_active=1),
+        Pricing(vehicle_class="van", name="Kombi", price_per_km=70, price_per_kg=40, base_price=300, max_weight_kg=500, is_active=1),
+        Pricing(vehicle_class="truck", name="Kamion", price_per_km=100, price_per_kg=50, base_price=500, max_weight_kg=3000, is_active=1),
+    ]
+    for item in pricing_items:
+        db_session.add(item)
+    db_session.commit()
+    print("✅ Cenovnik dodat")
+else:
+    print("✅ Cenovnik već postoji")
+
 db_session.close()
 # ========== KRAJ AUTO KREIRANJA ==========
 
@@ -94,6 +112,8 @@ app.add_middleware(
         "https://cargo-backend-av58.onrender.com",
         "http://localhost:5173",
         "http://localhost:3000",
+        "https://cargo-frontend-8k22.onrender.com",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],

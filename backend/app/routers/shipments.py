@@ -46,6 +46,15 @@ def approximate_distance(lat1, lng1, lat2, lng2):
     return R * c
 
 
+def get_suggested_class(weight_kg: float, db: Session) -> str:
+    """Predlaže odgovarajuću klasu vozila na osnovu težine"""
+    pricing_options = db.query(Pricing).filter(Pricing.is_active == 1).order_by(Pricing.max_weight_kg).all()
+    for option in pricing_options:
+        if weight_kg <= option.max_weight_kg:
+            return option.vehicle_class
+    return "truck"
+
+
 # ========== KREIRANJE POŠILJKE ==========
 @router.post("/create", response_model=ShipmentResponse)
 async def create_shipment(
@@ -436,13 +445,6 @@ async def get_shipment_location(
     
     return {"lat": None, "lng": None, "last_update": None}
 
-def get_suggested_class(weight_kg: float, db: Session) -> str:
-    """Predlaže odgovarajuću klasu vozila na osnovu težine"""
-    pricing_options = db.query(Pricing).filter(Pricing.is_active == 1).order_by(Pricing.max_weight_kg).all()
-    for option in pricing_options:
-        if weight_kg <= option.max_weight_kg:
-            return option.vehicle_class
-    return "truck"
 
 # ========== IZRAČUN CENE ==========
 @router.post("/calculate-price")
@@ -516,6 +518,42 @@ async def calculate_price(
         "urgent_multiplier": urgent_multiplier,
         "final_price": round(final_price, 0)
     }
+
+
+# ========== DOSTUPNI VOZAČI ZA KLIJENTA ==========
+@router.get("/drivers/available")
+async def get_available_drivers(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Dohvata sve dostupne vozače sa njihovim trenutnim lokacijama"""
+    
+    # Samo klijenti mogu videti dostupne vozače
+    if current_user.user_type != UserType.CLIENT:
+        raise HTTPException(status_code=403, detail="Samo klijenti mogu videti dostupne vozače")
+    
+    drivers = db.query(User).filter(
+        User.user_type == UserType.DRIVER,
+        User.is_active == 1
+    ).all()
+    
+    result = []
+    for driver in drivers:
+        profile = db.query(DriverProfile).filter(DriverProfile.user_id == driver.id).first()
+        # Prikazujemo samo vozače koji imaju aktivnu lokaciju
+        if profile and profile.current_latitude and profile.current_longitude:
+            result.append({
+                "id": driver.id,
+                "full_name": driver.full_name,
+                "current_latitude": profile.current_latitude,
+                "current_longitude": profile.current_longitude,
+                "vehicle_type": profile.vehicle_type or "Nepoznato",
+                "vehicle_plate": profile.vehicle_plate or "",
+                "max_load_kg": profile.max_load_kg or 0,
+                "is_available": profile.is_available
+            })
+    
+    return result
 
 
 # ========== VOZAČ EXPORT ==========
@@ -595,7 +633,7 @@ async def get_driver_earnings(
     }
 
 
-# ========== VOZAČ GRAFIKONI (DODATO NA KRAJ) ==========
+# ========== VOZAČ GRAFIKONI ==========
 @router.get("/driver/stats/shipments-by-month")
 async def get_driver_shipments_by_month(
     current_user: User = Depends(get_current_user),
@@ -652,38 +690,3 @@ async def get_driver_earnings_by_month(
         "labels": sorted_months,
         "data": [monthly_data[m] for m in sorted_months]
     }
-
-# ========== DOSTUPNI VOZAČI ZA KLIJENTA ==========
-@router.get("/drivers/available")
-async def get_available_drivers(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Dohvata sve dostupne vozače sa njihovim trenutnim lokacijama (za prikaz na mapi klijenta)"""
-    
-    # Samo klijenti mogu videti dostupne vozače
-    if current_user.user_type != UserType.CLIENT:
-        raise HTTPException(status_code=403, detail="Samo klijenti mogu videti dostupne vozače")
-    
-    drivers = db.query(User).filter(
-        User.user_type == UserType.DRIVER,
-        User.is_active == 1
-    ).all()
-    
-    result = []
-    for driver in drivers:
-        profile = db.query(DriverProfile).filter(DriverProfile.user_id == driver.id).first()
-        # Prikazujemo samo vozače koji imaju aktivnu lokaciju
-        if profile and profile.current_latitude and profile.current_longitude:
-            result.append({
-                "id": driver.id,
-                "full_name": driver.full_name,
-                "current_latitude": profile.current_latitude,
-                "current_longitude": profile.current_longitude,
-                "vehicle_type": profile.vehicle_type or "Nepoznato",
-                "vehicle_plate": profile.vehicle_plate or "",
-                "max_load_kg": profile.max_load_kg or 0,
-                "is_available": profile.is_available
-            })
-    
-    return result
