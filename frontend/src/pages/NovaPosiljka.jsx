@@ -98,9 +98,9 @@ function NovaPosiljka() {
       }
     }
     
-    const timeout = setTimeout(calculatePrice, 300)
+    const timeout = setTimeout(calculatePrice, 500)
     return () => clearTimeout(timeout)
-  }, [pickup.lat, pickup.lng, delivery.lat, delivery.lng, effectiveWeight, isUrgent, vehicleClass])
+  }, [pickup.lat, pickup.lng, delivery.lat, delivery.lng, effectiveWeight, isUrgent, vehicleClass, weightKg, dimensions])
 
   const handleVehicleClassChange = (e) => {
     setVehicleClass(e.target.value)
@@ -132,17 +132,27 @@ function NovaPosiljka() {
       return
     }
     
+    // Provera koordinata
+    if (isNaN(pickup.lat) || isNaN(pickup.lng)) {
+      setError('Neispravne koordinate za adresu preuzimanja')
+      return
+    }
+    if (isNaN(delivery.lat) || isNaN(delivery.lng)) {
+      setError('Neispravne koordinate za adresu dostave')
+      return
+    }
+    
     setLoading(true)
     
     const payload = {
       pickup_address: pickup.address,
-      pickup_lat: pickup.lat,
-      pickup_lng: pickup.lng,
+      pickup_lat: parseFloat(pickup.lat),
+      pickup_lng: parseFloat(pickup.lng),
       delivery_address: delivery.address,
-      delivery_lat: delivery.lat,
-      delivery_lng: delivery.lng,
+      delivery_lat: parseFloat(delivery.lat),
+      delivery_lng: parseFloat(delivery.lng),
       cargo_description: cargoDescription,
-      weight_kg: weightKg ? parseFloat(weightKg) : null,
+      weight_kg: parseFloat(weightKg),
       dimensions: dimensions || null,
       price: parseFloat(price),
       is_urgent: isUrgent
@@ -159,7 +169,11 @@ function NovaPosiljka() {
       if (err.response) {
         console.error('Response data:', err.response.data)
         console.error('Response status:', err.response.status)
-        setError(err.response.data?.detail || `Greška ${err.response.status}: ${JSON.stringify(err.response.data)}`)
+        if (err.response.status === 422) {
+          setError('Greška pri validaciji podataka. Proverite sva polja.')
+        } else {
+          setError(err.response.data?.detail || `Greška ${err.response.status}: ${JSON.stringify(err.response.data)}`)
+        }
       } else if (err.request) {
         setError('Nema odgovora od servera. Proverite CORS podešavanja.')
       } else {
@@ -185,9 +199,21 @@ function NovaPosiljka() {
   const suggestedClass = getSuggestedVehicleClass(effectiveWeight)
 
   return (
-    <div className="nova-posiljka">
+    <div className="nova-posiljka" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       <h1>Kreiraj novu pošiljku</h1>
-      {error && <div className="error" style={{color: 'red', marginBottom: '1rem', padding: '10px', background: '#ffebee', borderRadius: '8px'}}>{error}</div>}
+      
+      {error && (
+        <div style={{ 
+          color: 'red', 
+          marginBottom: '1rem', 
+          padding: '10px', 
+          background: '#ffebee', 
+          borderRadius: '8px',
+          border: '1px solid #ffcdd2'
+        }}>
+          ❌ {error}
+        </div>
+      )}
       
       <form onSubmit={handleSubmit}>
         <LocationPicker
@@ -204,17 +230,19 @@ function NovaPosiljka() {
           center={[44.7875, 20.4495]}
         />
         
-        <div className="form-group">
-          <label>Opis robe *</label>
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Opis robe *</label>
           <textarea
             value={cargoDescription}
             onChange={(e) => setCargoDescription(e.target.value)}
             required
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+            rows="3"
           />
         </div>
         
-        <div className="form-group">
-          <label>Težina (kg) *</label>
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Težina (kg) *</label>
           <input
             type="number"
             value={weightKg}
@@ -222,29 +250,31 @@ function NovaPosiljka() {
             step="0.1"
             placeholder="npr. 5.5"
             required
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
           />
         </div>
         
-        <div className="form-group">
-          <label>Dimenzije (Dužina x Širina x Visina u cm)</label>
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Dimenzije (Dužina x Širina x Visina u cm)</label>
           <input
             value={dimensions}
             onChange={(e) => setDimensions(e.target.value)}
             placeholder="npr. 50x40x30"
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
           />
           <small style={{ color: '#666' }}>Za pakete preko 6000 cm³ računa se volumetrijska težina</small>
         </div>
         
-        <div className="form-group">
-          <label>Tip vozila</label>
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Tip vozila</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <select 
               value={vehicleClass} 
               onChange={handleVehicleClassChange}
               style={{
                 flex: 1,
-                padding: '10px',
-                borderRadius: '8px',
+                padding: '8px',
+                borderRadius: '4px',
                 border: '1px solid #ddd'
               }}
             >
@@ -267,8 +297,8 @@ function NovaPosiljka() {
           <small>Sistem automatski predlaže vozilo na osnovu težine</small>
         </div>
         
-        <div className="form-group">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={isUrgent}
@@ -278,7 +308,7 @@ function NovaPosiljka() {
           </label>
         </div>
         
-        {calculating && <p>🔄 Izračunavanje cene...</p>}
+        {calculating && <p style={{ color: '#667eea' }}>🔄 Izračunavanje cene...</p>}
         
         {priceBreakdown && !calculating && !priceBreakdown.error && (
           <div style={{ 
@@ -320,19 +350,35 @@ function NovaPosiljka() {
           </div>
         )}
         
-        <div className="form-group">
-          <label>Cena (RSD) *</label>
+        <div className="form-group" style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Cena (RSD) *</label>
           <input
             type="number"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             required
             disabled
+            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', background: '#f5f5f5' }}
           />
           <small style={{ color: '#666' }}>Cena se automatski izračunava</small>
         </div>
         
-        <button type="submit" disabled={loading || calculating}>
+        <button 
+          type="submit" 
+          disabled={loading || calculating}
+          style={{
+            width: '100%',
+            padding: '12px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: loading || calculating ? 'not-allowed' : 'pointer',
+            opacity: loading || calculating ? 0.7 : 1
+          }}
+        >
           {loading ? 'Kreiranje...' : 'Kreiraj pošiljku'}
         </button>
       </form>
