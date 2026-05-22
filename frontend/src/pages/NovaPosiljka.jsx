@@ -43,7 +43,6 @@ function NovaPosiljka() {
     return 'truck'
   }
 
-  // Izračunaj efektivnu težinu i automatski odaberi klasu
   useEffect(() => {
     const dims = parseDimensions(dimensions)
     const weight = parseFloat(weightKg) || 0
@@ -59,13 +58,13 @@ function NovaPosiljka() {
     }
   }, [weightKg, dimensions])
 
-  // Izračunaj cenu
   useEffect(() => {
     const calculatePrice = async () => {
       if (!pickup.lat || !pickup.lng || !delivery.lat || !delivery.lng) return
       if (effectiveWeight === 0 && !weightKg) return
       
       setCalculating(true)
+      setError('')
       try {
         const dims = parseDimensions(dimensions)
         
@@ -87,11 +86,13 @@ function NovaPosiljka() {
         setPriceBreakdown(response.data)
         if (response.data.error) {
           setError(response.data.message)
+          setPrice('')
         } else {
           setPrice(response.data.final_price)
         }
       } catch (err) {
         console.error('Greška pri izračunu cene:', err)
+        setError(err.response?.data?.detail || 'Greška pri izračunu cene')
       } finally {
         setCalculating(false)
       }
@@ -107,6 +108,7 @@ function NovaPosiljka() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
     
     // Validacija
     if (!pickup.address || pickup.lat === 0 || pickup.lng === 0) {
@@ -130,7 +132,6 @@ function NovaPosiljka() {
       return
     }
     
-    setError('')
     setLoading(true)
     
     const payload = {
@@ -147,11 +148,23 @@ function NovaPosiljka() {
       is_urgent: isUrgent
     }
     
+    console.log('📤 Slanje pošiljke:', payload)
+    
     try {
-      await api.post('/shipments/create', payload)
+      const response = await api.post('/shipments/create', payload)
+      console.log('✅ Pošiljka kreirana:', response.data)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Greška pri kreiranju pošiljke')
+      console.error('❌ Greška:', err)
+      if (err.response) {
+        console.error('Response data:', err.response.data)
+        console.error('Response status:', err.response.status)
+        setError(err.response.data?.detail || `Greška ${err.response.status}: ${JSON.stringify(err.response.data)}`)
+      } else if (err.request) {
+        setError('Nema odgovora od servera. Proverite CORS podešavanja.')
+      } else {
+        setError(err.message || 'Greška pri kreiranju pošiljke')
+      }
     } finally {
       setLoading(false)
     }
@@ -174,7 +187,7 @@ function NovaPosiljka() {
   return (
     <div className="nova-posiljka">
       <h1>Kreiraj novu pošiljku</h1>
-      {error && <div className="error" style={{color: 'red', marginBottom: '1rem'}}>{error}</div>}
+      {error && <div className="error" style={{color: 'red', marginBottom: '1rem', padding: '10px', background: '#ffebee', borderRadius: '8px'}}>{error}</div>}
       
       <form onSubmit={handleSubmit}>
         <LocationPicker
@@ -314,6 +327,7 @@ function NovaPosiljka() {
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             required
+            disabled
           />
           <small style={{ color: '#666' }}>Cena se automatski izračunava</small>
         </div>
