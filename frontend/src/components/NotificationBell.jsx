@@ -1,6 +1,34 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../services/api'
 
+// NOVA ADRESA
+const WS_URL = window.location.protocol === 'https:' 
+  ? 'wss://cargo-backend-av58.onrender.com' 
+  : 'ws://localhost:8000'
+
+// Zvuk bez fajla (Web Audio API)
+const playNotificationSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+    
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+    
+    oscillator.frequency.value = 880
+    gainNode.gain.value = 0.2
+    
+    oscillator.start()
+    gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.3)
+    oscillator.stop(audioContext.currentTime + 0.3)
+    
+    setTimeout(() => audioContext.close(), 400)
+  } catch(e) {
+    console.log('Audio error:', e)
+  }
+}
+
 function NotificationBell({ userId }) {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -23,29 +51,32 @@ function NotificationBell({ userId }) {
 
     fetchNotifications()
 
-    // WebSocket za real-time notifikacije
-    const WS_URL = window.location.protocol === 'https:' 
-      ? 'wss://cargo-backend-mqx7.onrender.com' 
-      : 'ws://localhost:8000'
-    
     const ws = new WebSocket(`${WS_URL}/ws/notifications/${userId}`)
     wsRef.current = ws
+
+    ws.onopen = () => {
+      console.log('🔔 WebSocket notifikacija povezan')
+    }
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
+        console.log('🔔 Nova notifikacija:', data)
+        
         if (data.type === 'new_notification') {
-          // Dodaj novu notifikaciju na početak liste
           setNotifications(prev => [data.notification, ...prev])
           setUnreadCount(prev => prev + 1)
           
-          // Zvuk za notifikaciju
-          const audio = new Audio('/notification.mp3')
-          audio.play().catch(e => console.log('Audio error:', e))
+          // 🔊 ZVUK ZA NOTIFIKACIJU
+          playNotificationSound()
         }
       } catch (err) {
         console.error('WebSocket notifikacija error:', err)
       }
+    }
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error)
     }
 
     return () => {
@@ -81,6 +112,7 @@ function NotificationBell({ userId }) {
       case 'status_change': return '📦'
       case 'new_shipment': return '➕'
       case 'shipment_accepted': return '✅'
+      case 'shipment_delivered': return '🏁'
       default: return '🔔'
     }
   }
