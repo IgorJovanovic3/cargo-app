@@ -8,18 +8,18 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     print("⚠️ DATABASE_URL not found. Falling back to local MySQL configuration.")
     DATABASE_URL = "mysql+pymysql://cargo_user:David17Dora21@localhost:3306/cargo_db"
-    connect_args = {"pool_pre_ping": True}
+    connect_args = {}
 else:
     print("✅ DATABASE_URL found. Using PostgreSQL for production.")
     connect_args = {
         "sslmode": "require",
     }
 
-# Kreiraj engine - pool_pre_ping je parametar engine-a, ne connect_args
+# Kreiraj engine - pool_pre_ping je SQLAlchemy parametar, ide u create_engine
 engine = create_engine(
-    DATABASE_URL, 
+    DATABASE_URL,
     connect_args=connect_args,
-    pool_pre_ping=True,  # Ovo je SQLAlchemy parametar
+    pool_pre_ping=True,
     pool_recycle=300
 )
 
