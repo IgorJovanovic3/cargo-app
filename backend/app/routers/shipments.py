@@ -65,14 +65,15 @@ async def create_shipment(
     if current_user.user_type != UserType.CLIENT:
         raise HTTPException(status_code=403, detail="Samo klijenti mogu kreirati pošiljke")
     
+    # ShipmentCreate ima pickup_long i delivery_long (ne pickup_lng/delivery_lng)
     new_shipment = Shipment(
         client_id=current_user.id,
         pickup_address=shipment.pickup_address,
         pickup_lat=shipment.pickup_lat,
-        pickup_lng=shipment.pickup_lng,
+        pickup_lng=shipment.pickup_long,      # <-- ISPRAVLJENO
         delivery_address=shipment.delivery_address,
         delivery_lat=shipment.delivery_lat,
-        delivery_lng=shipment.delivery_lng,
+        delivery_lng=shipment.delivery_long,  # <-- ISPRAVLJENO
         cargo_description=shipment.cargo_description,
         weight_kg=shipment.weight_kg,
         dimensions=shipment.dimensions,
@@ -555,40 +556,6 @@ async def get_available_drivers(
     
     return result
 
-# ========== DOSTUPNI VOZAČI ZA KLIJENTA ==========
-@router.get("/drivers/available")
-async def get_available_drivers(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Dohvata sve dostupne vozače sa njihovim trenutnim lokacijama"""
-    
-    # Samo klijenti mogu videti dostupne vozače
-    if current_user.user_type != UserType.CLIENT:
-        raise HTTPException(status_code=403, detail="Samo klijenti mogu videti dostupne vozače")
-    
-    drivers = db.query(User).filter(
-        User.user_type == UserType.DRIVER,
-        User.is_active == 1
-    ).all()
-    
-    result = []
-    for driver in drivers:
-        profile = db.query(DriverProfile).filter(DriverProfile.user_id == driver.id).first()
-        # Prikazujemo vozače koji imaju aktivnu lokaciju
-        if profile and profile.current_latitude and profile.current_longitude:
-            result.append({
-                "id": driver.id,
-                "full_name": driver.full_name,
-                "current_latitude": profile.current_latitude,
-                "current_longitude": profile.current_longitude,
-                "vehicle_type": profile.vehicle_type or "Nepoznato",
-                "vehicle_plate": profile.vehicle_plate or "",
-                "max_load_kg": profile.max_load_kg or 0,
-                "is_available": profile.is_available
-            })
-    
-    return result
 
 # ========== VOZAČ EXPORT ==========
 @router.get("/driver/export/excel")
