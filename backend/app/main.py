@@ -101,6 +101,7 @@ app = FastAPI(
     title="Cargo App API",
     description="API za cargo/logistika aplikaciju",
     version="1.0.0"
+    root_path="/api"
 )
 
 # ========== CORS MIDDLEWARE ==========

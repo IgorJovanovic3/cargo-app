@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://cargo-backend-av58.onrender.com'
+// Railway: frontend i backend na istom domenu
+const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -16,22 +17,21 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    console.log(`📡 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`)
     return config
   },
   (error) => Promise.reject(error)
 )
 
-// Interceptor za obradu 401 - NE RADI LOGOUT ODMAH
+// Interceptor za obradu 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Samo ako nije zahtev za login, radi logout
     if (error.response?.status === 401) {
       const isLoginRequest = error.config?.url?.includes('/auth/login')
       if (!isLoginRequest) {
         localStorage.removeItem('access_token')
         localStorage.removeItem('user')
-        // Ne radi redirect odmah, samo ako nije WebSocket greška
         if (!error.config?.url?.includes('/ws/')) {
           window.location.href = '/login'
         }
