@@ -11,7 +11,6 @@ if not DATABASE_URL:
     connect_args = {"pool_pre_ping": True}
 else:
     print("✅ DATABASE_URL found. Using PostgreSQL for production.")
-    # SQLAlchemy parametri idu u create_engine, ne u connect_args
     connect_args = {
         "sslmode": "require",
     }
