@@ -104,10 +104,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# ========== CORS PODEŠAVANJA ==========
+# VAŽNO: allow_origins mora biti lista tačnih domena, ne "*" kada je allow_credentials=True
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://cargo-frontend-8k22.onrender.com",  # TVOJ FRONTEND
+        "https://cargo-frontend-8k22.onrender.com",
         "https://cargo-frontend.onrender.com",
         "https://cargo-backend-av58.onrender.com",
         "http://localhost:5173",
