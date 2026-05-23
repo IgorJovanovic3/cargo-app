@@ -1,0 +1,23 @@
+{
+  "builds": [
+    {
+      "src": "backend/app/main.py",
+      "use": "@railway/python"
+    },
+    {
+      "src": "frontend",
+      "use": "@railway/static",
+      "buildCommand": "npm install && npm run build"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/*",
+      "dest": "/api"
+    },
+    {
+      "src": "/*",
+      "dest": "/"
+    }
+  ]
+}
