@@ -1,5 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.database import engine, Base
 from app.routers import auth, shipments, notifications, admin, reviews, chat
 from typing import Dict
@@ -69,7 +70,6 @@ if not driver_user:
     db_session.add(driver_user)
     db_session.commit()
     
-    # Kreiraj i driver profile
     driver_profile = DriverProfile(user_id=driver_user.id)
     db_session.add(driver_profile)
     db_session.commit()
@@ -77,7 +77,7 @@ if not driver_user:
 else:
     print("✅ Test vozač već postoji")
 
-# ========== DODAJ CENOVNIK AKO NE POSTOJI ==========
+# Dodaj cenovnik ako ne postoji
 pricing = db_session.query(Pricing).first()
 if not pricing:
     print("🔧 Dodavanje cenovnika...")
@@ -96,7 +96,6 @@ else:
     print("✅ Cenovnik već postoji")
 
 db_session.close()
-# ========== KRAJ AUTO KREIRANJA ==========
 
 app = FastAPI(
     title="Cargo App API",
@@ -104,8 +103,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# ========== CORS PODEŠAVANJA ==========
-# VAŽNO: allow_origins mora biti lista tačnih domena, ne "*" kada je allow_credentials=True
+# ========== CORS MIDDLEWARE ==========
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -119,6 +117,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ========== FORCED CORS MIDDLEWARE (ZA SVAKI RESPONSE) ==========
+class ForceCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "https://cargo-frontend-8k22.onrender.com"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+
+app.add_middleware(ForceCORSMiddleware)
 
 # WebSocket Connection Manager
 class ConnectionManager:
@@ -178,8 +186,6 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-
-# WebSocket endpoint za klijente (praćenje lokacije)
 @app.websocket("/ws/client/{client_id}")
 async def websocket_client(websocket: WebSocket, client_id: int):
     await manager.connect(client_id, websocket)
@@ -194,8 +200,6 @@ async def websocket_client(websocket: WebSocket, client_id: int):
         print(f"WebSocket client error: {e}")
         manager.disconnect(client_id)
 
-
-# WebSocket endpoint za vozače (slanje lokacije)
 @app.websocket("/ws/driver/{driver_id}")
 async def websocket_driver(websocket: WebSocket, driver_id: int):
     from app.database import SessionLocal
@@ -250,8 +254,6 @@ async def websocket_driver(websocket: WebSocket, driver_id: int):
     finally:
         db.close()
 
-
-# WebSocket za notifikacije
 @app.websocket("/ws/notifications/{user_id}")
 async def websocket_notifications(websocket: WebSocket, user_id: int):
     await manager.connect(user_id, websocket)
@@ -266,16 +268,11 @@ async def websocket_notifications(websocket: WebSocket, user_id: int):
         print(f"WebSocket notifications error: {e}")
         manager.disconnect(user_id)
 
-
-# ========== CHAT WEBSOCKET ENDPOINT ==========
 @app.websocket("/chat/ws/{shipment_id}/{user_id}")
 async def websocket_chat_endpoint(websocket: WebSocket, shipment_id: int, user_id: int):
-    """Chat WebSocket - prosleđuje se chat manageru iz chat.py"""
     from app.routers.chat import handle_chat_websocket
     await handle_chat_websocket(websocket, shipment_id, user_id)
 
-
-# Uključi routere
 app.include_router(auth.router)
 app.include_router(shipments.router)
 app.include_router(notifications.router)
@@ -285,11 +282,7 @@ app.include_router(chat.router)
 
 @app.get("/")
 def root():
-    return {
-        "message": "Cargo App API",
-        "docs": "/docs",
-        "version": "1.0.0"
-    }
+    return {"message": "Cargo App API", "docs": "/docs", "version": "1.0.0"}
 
 @app.get("/health")
 def health_check():
