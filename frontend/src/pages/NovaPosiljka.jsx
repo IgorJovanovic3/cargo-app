@@ -107,68 +107,93 @@ function NovaPosiljka() {
   }
 
   const handleSubmit = async (e) => {
-  e.preventDefault()
-  setError('')
-  
-  // Validacija
-  if (!pickup.address || pickup.lat === 0 || pickup.lng === 0) {
-    setError('Morate odabrati adresu preuzimanja')
-    return
-  }
-  if (!delivery.address || delivery.lat === 0 || delivery.lng === 0) {
-    setError('Morate odabrati adresu dostave')
-    return
-  }
-  if (!cargoDescription.trim()) {
-    setError('Morate uneti opis robe')
-    return
-  }
-  if (!weightKg || parseFloat(weightKg) <= 0) {
-    setError('Morate uneti težinu paketa')
-    return
-  }
-  if (!price || parseFloat(price) <= 0) {
-    setError('Cena nije izračunata')
-    return
-  }
-  
-  setLoading(true)
-  
-  const payload = {
-    pickup_address: pickup.address,
-    pickup_lat: Number(pickup.lat),
-    pickup_long: Number(pickup.lng),      // <--- ISPRAVLJENO
-    delivery_address: delivery.address,
-    delivery_lat: Number(delivery.lat),
-    delivery_long: Number(delivery.lng),  // <--- ISPRAVLJENO
-    cargo_description: cargoDescription,
-    weight_kg: Number(weightKg),
-    dimensions: dimensions || null,
-    price: Number(price),
-    is_urgent: isUrgent
-  }
-  
-  console.log('📤 Slanje pošiljke:', payload)
-  
-  try {
-    const response = await api.post('/shipments/create', payload)
-    console.log('✅ Pošiljka kreirana:', response.data)
-    navigate('/dashboard')
-  } catch (err) {
-    console.error('❌ Greška:', err)
-    if (err.response) {
-      console.error('Response data:', err.response.data)
-      console.error('Response status:', err.response.status)
-      setError(err.response.data?.detail || `Greška ${err.response.status}`)
-    } else if (err.request) {
-      setError('Nema odgovora od servera. Proverite mrežu.')
-    } else {
-      setError(err.message || 'Greška pri kreiranju pošiljke')
+    e.preventDefault()
+    setError('')
+    
+    // ========== PROVERA TOKENA ==========
+    const token = localStorage.getItem('access_token')
+    console.log('🔑 Token pre slanja:', token ? `${token.substring(0, 30)}...` : 'NEMA TOKENA')
+    console.log('👤 Korisnik iz localStorage:', localStorage.getItem('user'))
+    console.log('👤 Korisnik iz AuthContext:', user)
+    
+    if (!token) {
+      setError('Niste ulogovani. Molimo prijavite se ponovo.')
+      return
     }
-  } finally {
-    setLoading(false)
+    
+    // Validacija
+    if (!pickup.address || pickup.lat === 0 || pickup.lng === 0) {
+      setError('Morate odabrati adresu preuzimanja')
+      return
+    }
+    if (!delivery.address || delivery.lat === 0 || delivery.lng === 0) {
+      setError('Morate odabrati adresu dostave')
+      return
+    }
+    if (!cargoDescription.trim()) {
+      setError('Morate uneti opis robe')
+      return
+    }
+    if (!weightKg || parseFloat(weightKg) <= 0) {
+      setError('Morate uneti težinu paketa')
+      return
+    }
+    if (!price || parseFloat(price) <= 0) {
+      setError('Cena nije izračunata')
+      return
+    }
+    
+    setLoading(true)
+    
+    const payload = {
+      pickup_address: pickup.address,
+      pickup_lat: Number(pickup.lat),
+      pickup_long: Number(pickup.lng),
+      delivery_address: delivery.address,
+      delivery_lat: Number(delivery.lat),
+      delivery_long: Number(delivery.lng),
+      cargo_description: cargoDescription,
+      weight_kg: Number(weightKg),
+      dimensions: dimensions || null,
+      price: Number(price),
+      is_urgent: isUrgent
+    }
+    
+    console.log('📤 Slanje pošiljke:', payload)
+    
+    try {
+      const response = await api.post('/shipments/create', payload)
+      console.log('✅ Pošiljka kreirana:', response.data)
+      navigate('/dashboard')
+    } catch (err) {
+      console.error('❌ Greška:', err)
+      if (err.response) {
+        console.error('Response data:', err.response.data)
+        console.error('Response status:', err.response.status)
+        console.error('Response headers:', err.response.headers)
+        
+        if (err.response.status === 401) {
+          setError('Niste autorizovani. Molimo prijavite se ponovo.')
+          // Opciono: preusmeri na login
+          setTimeout(() => navigate('/login'), 2000)
+        } else if (err.response.status === 422) {
+          setError('Greška pri validaciji podataka. Proverite sva polja.')
+        } else {
+          setError(err.response.data?.detail || `Greška ${err.response.status}: ${JSON.stringify(err.response.data)}`)
+        }
+      } else if (err.request) {
+        setError('Nema odgovora od servera. Proverite CORS podešavanja.')
+      } else {
+        setError(err.message || 'Greška pri kreiranju pošiljke')
+      }
+    } finally {
+      setLoading(false)
+    }
   }
-}
+
+  if (user?.user_type !== 'client') {
+    return <p>Samo klijenti mogu kreirati pošiljke.</p>
+  }
 
   const vehicleEmojis = {
     bike: '🚲',
