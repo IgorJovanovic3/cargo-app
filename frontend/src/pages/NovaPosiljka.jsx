@@ -113,8 +113,6 @@ function NovaPosiljka() {
     // ========== PROVERA TOKENA ==========
     const token = localStorage.getItem('access_token')
     console.log('🔑 Token pre slanja:', token ? `${token.substring(0, 30)}...` : 'NEMA TOKENA')
-    console.log('👤 Korisnik iz localStorage:', localStorage.getItem('user'))
-    console.log('👤 Korisnik iz AuthContext:', user)
     
     if (!token) {
       setError('Niste ulogovani. Molimo prijavite se ponovo.')
@@ -164,25 +162,28 @@ function NovaPosiljka() {
     try {
       const response = await api.post('/shipments/create', payload)
       console.log('✅ Pošiljka kreirana:', response.data)
-      navigate('/dashboard')
+      
+      // 🔥 NAVIGACIJA - koristi window.location umesto navigate
+      window.location.href = '/dashboard'
+      
     } catch (err) {
       console.error('❌ Greška:', err)
       if (err.response) {
         console.error('Response data:', err.response.data)
         console.error('Response status:', err.response.status)
-        console.error('Response headers:', err.response.headers)
         
         if (err.response.status === 401) {
           setError('Niste autorizovani. Molimo prijavite se ponovo.')
-          // Opciono: preusmeri na login
-          setTimeout(() => navigate('/login'), 2000)
+          setTimeout(() => {
+            window.location.href = '/login'
+          }, 2000)
         } else if (err.response.status === 422) {
           setError('Greška pri validaciji podataka. Proverite sva polja.')
         } else {
-          setError(err.response.data?.detail || `Greška ${err.response.status}: ${JSON.stringify(err.response.data)}`)
+          setError(err.response.data?.detail || `Greška ${err.response.status}`)
         }
       } else if (err.request) {
-        setError('Nema odgovora od servera. Proverite CORS podešavanja.')
+        setError('Nema odgovora od servera. Proverite mrežu.')
       } else {
         setError(err.message || 'Greška pri kreiranju pošiljke')
       }
