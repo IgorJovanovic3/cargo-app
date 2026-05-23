@@ -8,20 +8,16 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     print("⚠️ DATABASE_URL not found. Falling back to local MySQL configuration.")
     DATABASE_URL = "mysql+pymysql://cargo_user:David17Dora21@localhost:3306/cargo_db"
-    connect_args = {}
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 else:
     print("✅ DATABASE_URL found. Using PostgreSQL for production.")
-    connect_args = {
-        "sslmode": "require",
-    }
-
-# Kreiraj engine - pool_pre_ping je SQLAlchemy parametar, ide u create_engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-    pool_recycle=300
-)
+    # `pool_pre_ping` ide ovde, a `connect_args` je samo za sslmode
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"sslmode": "require"},
+        pool_pre_ping=True,
+        pool_recycle=300
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
