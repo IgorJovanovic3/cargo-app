@@ -1,8 +1,10 @@
 {
+  "$schema": "https://railway.app/railway.schema.json",
   "builds": [
     {
-      "src": "backend/app/main.py",
-      "use": "@railway/python"
+      "src": "backend",
+      "use": "@railway/python",
+      "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     },
     {
       "src": "frontend",
@@ -12,8 +14,8 @@
   ],
   "routes": [
     {
-      "src": "/api/*",
-      "dest": "/api"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
       "src": "/*",
