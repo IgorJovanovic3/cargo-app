@@ -107,13 +107,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://cargo-frontend-8k22.onrender.com",
+        "https://cargo-frontend-8k22.onrender.com",  # TVOJ FRONTEND
         "https://cargo-frontend.onrender.com",
         "https://cargo-backend-av58.onrender.com",
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://cargo-frontend-8k22.onrender.com",
-        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
