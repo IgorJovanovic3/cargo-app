@@ -11,7 +11,6 @@ if not DATABASE_URL:
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 else:
     print("✅ DATABASE_URL found. Using PostgreSQL for production.")
-    # `pool_pre_ping` ide ovde, a `connect_args` je samo za sslmode
     engine = create_engine(
         DATABASE_URL,
         connect_args={"sslmode": "require"},
