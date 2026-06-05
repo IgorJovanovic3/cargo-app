@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-// Railway: frontend i backend na istom domenu
-const API_URL = import.meta.env.VITE_API_URL || '/api'
+// Hardkodovano za Render
+const API_URL = 'https://cargo-backend.onrender.com'
 
 const api = axios.create({
   baseURL: API_URL,
