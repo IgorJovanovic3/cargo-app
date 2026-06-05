@@ -106,7 +106,7 @@ class ShipmentResponse(ShipmentBase):
     accepted_at: Optional[datetime] = None
     picked_up_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
-
+    
     class Config:
         from_attributes = True
 
