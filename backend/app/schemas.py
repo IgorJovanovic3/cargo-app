@@ -69,10 +69,10 @@ class DriverProfileResponse(DriverProfileBase):
 class ShipmentBase(BaseModel):
     pickup_address: str
     pickup_lat: float
-    pickup_long: float
+    pickup_lng: float      # <--- ISPRAVLJENO
     delivery_address: str
     delivery_lat: float
-    delivery_long: float
+    delivery_lng: float    # <--- ISPRAVLJENO
     cargo_description: str
     weight_kg: Optional[float] = None
     dimensions: Optional[str] = None
@@ -106,7 +106,7 @@ class ShipmentResponse(ShipmentBase):
     accepted_at: Optional[datetime] = None
     picked_up_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -130,7 +130,6 @@ class NotificationResponse(NotificationBase):
     class Config:
         from_attributes = True
 
-# Ovo zadrži ako negde koristiš sam Notification
 Notification = NotificationResponse
 
 # ========== REVIEW SCHEMAS ==========
