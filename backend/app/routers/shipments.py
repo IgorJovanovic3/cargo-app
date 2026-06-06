@@ -70,10 +70,10 @@ async def create_shipment(
         client_id=current_user.id,
         pickup_address=shipment.pickup_address,
         pickup_lat=shipment.pickup_lat,
-        pickup_lng=shipment.pickup_long,      # <-- ISPRAVLJENO
+        pickup_lng=shipment.pickup_lng,      # <-- ISPRAVLJENO
         delivery_address=shipment.delivery_address,
         delivery_lat=shipment.delivery_lat,
-        delivery_lng=shipment.delivery_long,  # <-- ISPRAVLJENO
+        delivery_lng=shipment.delivery_lng,  # <-- ISPRAVLJENO
         cargo_description=shipment.cargo_description,
         weight_kg=shipment.weight_kg,
         dimensions=shipment.dimensions,
