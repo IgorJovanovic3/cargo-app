@@ -223,6 +223,37 @@ async def get_driver_shipments(
         "total_pages": (total + limit - 1) // limit if total > 0 else 1
     }
 
+@router.get("/drivers/available")
+async def get_available_drivers(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Dohvata sve dostupne vozače sa njihovim trenutnim lokacijama"""
+    
+    if current_user.user_type != UserType.CLIENT:
+        raise HTTPException(status_code=403, detail="Samo klijenti mogu videti dostupne vozače")
+    
+    drivers = db.query(User).filter(
+        User.user_type == UserType.DRIVER,
+        User.is_active == 1
+    ).all()
+    
+    result = []
+    for driver in drivers:
+        profile = db.query(DriverProfile).filter(DriverProfile.user_id == driver.id).first()
+        if profile and profile.current_latitude and profile.current_longitude:
+            result.append({
+                "id": driver.id,
+                "full_name": driver.full_name,
+                "current_latitude": profile.current_latitude,
+                "current_longitude": profile.current_longitude,
+                "vehicle_type": profile.vehicle_type or "Nepoznato",
+                "vehicle_plate": profile.vehicle_plate or "",
+                "max_load_kg": profile.max_load_kg or 0,
+                "is_available": profile.is_available
+            })
+    
+    return result
 
 # ========== AŽURIRANJE POŠILJKE ==========
 @router.put("/{shipment_id}")
