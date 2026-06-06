@@ -17,7 +17,7 @@ import L from 'leaflet'
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Title)
 
 const WS_URL = window.location.protocol === 'https:' 
-  ? 'wss://cargo-backend.onrender.com' 
+  ? 'wss://cargo-backend-av58.onrender.com' 
   : 'ws://localhost:8000'
 
 // Fix za marker ikone

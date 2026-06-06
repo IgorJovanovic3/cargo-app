@@ -15,7 +15,7 @@ import { saveAs } from 'file-saver'
 import { useTranslation } from 'react-i18next'
 
 const WS_URL = window.location.protocol === 'https:' 
-  ? 'wss://cargo-backend.onrender.com' 
+  ? 'wss://cargo-backend-av58.onrender.com' 
   : 'ws://localhost:8000'
 
 delete L.Icon.Default.prototype._getIconUrl

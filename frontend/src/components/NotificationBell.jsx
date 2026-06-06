@@ -3,7 +3,7 @@ import api from '../services/api'
 
 // NOVA ADRESA
 const WS_URL = window.location.protocol === 'https:' 
-  ? 'wss://cargo-backend.onrender.com' 
+  ? 'wss://cargo-backend-av58.onrender.com' 
   : 'ws://localhost:8000'
 
 // Zvuk bez fajla (Web Audio API)

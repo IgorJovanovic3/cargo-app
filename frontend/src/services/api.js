@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 // Hardkodovano za Render
-const API_URL = 'https://cargo-backend.onrender.com'
+const API_URL = 'https://cargo-backend-av58.onrender.com'
 
 const api = axios.create({
   baseURL: API_URL,
