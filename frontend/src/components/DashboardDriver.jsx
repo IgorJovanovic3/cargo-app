@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import api, { WS_URL } from '../services/api'
+import api, { WS_URL, websocketProtocols } from '../services/api'
 import Chat from '../components/Chat'
 import QrScanner from '../components/QrScanner'
 import EditShipmentModal from './EditShipmentModal'
@@ -27,7 +27,7 @@ L.Icon.Default.mergeOptions({
 })
 
 function DashboardDriver() {
-  const { user } = useAuth()
+  const { user, demo } = useAuth()
   const { t } = useTranslation()
   const [availableShipments, setAvailableShipments] = useState([])
   const [myShipments, setMyShipments] = useState([])
@@ -137,7 +137,7 @@ function DashboardDriver() {
 
   // WebSocket za slanje lokacije
   useEffect(() => {
-    if (!activeShipment || !user) return
+    if (!activeShipment || !user || demo === null) return
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.close()
@@ -146,14 +146,22 @@ function DashboardDriver() {
       clearInterval(locationIntervalRef.current)
     }
 
-    const ws = new WebSocket(`${WS_URL}/ws/driver/${user.id}`)
+    const ws = new WebSocket(`${WS_URL}/ws/driver/${user.id}`, websocketProtocols())
     wsRef.current = ws
     
     ws.onopen = () => {
       console.log('✅ Driver WebSocket connected')
       
       locationIntervalRef.current = setInterval(() => {
-        if (navigator.geolocation) {
+        if (demo?.enabled) {
+          const phase = (Date.now() % 60000) / 60000
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              type: 'location_update', shipment_id: activeShipment.id,
+              lat: 44.807 + phase * 0.002, lng: 20.466 + phase * 0.002,
+            }))
+          }
+        } else if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             (position) => {
               const locationData = {
@@ -190,7 +198,7 @@ function DashboardDriver() {
         clearInterval(locationIntervalRef.current)
       }
     }
-  }, [activeShipment, user])
+  }, [activeShipment, user, demo])
 
   const handleAccept = async (shipmentId) => {
     try {

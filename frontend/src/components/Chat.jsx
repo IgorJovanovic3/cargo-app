@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import api, { WS_URL } from '../services/api'
+import api, { WS_URL, websocketProtocols } from '../services/api'
 
 
 
@@ -65,7 +65,7 @@ function Chat({ shipment, currentUser }) {
       wsRef.current.close()
     }
 
-    const socket = new WebSocket(`${WS_URL}/chat/ws/${shipment.id}/${currentUser.id}`)
+    const socket = new WebSocket(`${WS_URL}/chat/ws/${shipment.id}/${currentUser.id}`, websocketProtocols())
     wsRef.current = socket
     
     socket.onopen = () => {

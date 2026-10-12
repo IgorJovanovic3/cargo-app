@@ -1,7 +1,8 @@
 import axios from 'axios'
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+const API_URL = (import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:8000')).replace(/\/$/, '')
 export const WS_URL = API_URL.replace(/^http/, 'ws')
+export const websocketProtocols = () => ['cargo', localStorage.getItem('access_token') || 'missing-token']
 
 const api = axios.create({
   baseURL: API_URL,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import api, { WS_URL } from '../services/api'
+import api, { WS_URL, websocketProtocols } from '../services/api'
 
 // NOVA ADRESA
 
@@ -49,7 +49,7 @@ function NotificationBell({ userId }) {
 
     fetchNotifications()
 
-    const ws = new WebSocket(`${WS_URL}/ws/notifications/${userId}`)
+    const ws = new WebSocket(`${WS_URL}/ws/notifications/${userId}`, websocketProtocols())
     wsRef.current = ws
 
     ws.onopen = () => {

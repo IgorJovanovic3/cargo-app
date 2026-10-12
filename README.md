@@ -4,6 +4,10 @@ A Python backend and React web application for managing deliveries between clien
 
 Originally developed step by step for my own courier service, this project was built around a practical delivery workflow. It was used locally with test data and was never released for public or production use.
 
+## Portfolio demo
+
+The `portfolio/public-demo` branch adds a resettable public demonstration with client/driver accounts and fictional shipments. It serves the real FastAPI backend and React build on one origin. See [demo setup and walkthrough](docs/public-demo.md) for deployment and the deliberately public demo login details.
+
 ## Business use case
 
 A small delivery business needs to keep customer requests, driver assignments, shipment statuses, and proof of delivery together. Cargo App explores that workflow through a REST API backed by a relational database and a browser interface for clients, drivers, and administrators.
@@ -143,10 +147,10 @@ npm run build
 
 ## Project status and limitations
 
-- WebSocket authentication and shipment authorization need a separate review before public deployment. Current handlers accept identifiers from their paths; do not use this prototype with real customer messages or location data.
+- WebSockets require JWT authentication and check user identity, role, and shipment participation. A wider security review is still needed before using this prototype with real business data.
 - Database migrations are not included. Automatic table creation is intended for development and does not upgrade existing database schemas.
 - WebSocket connection storage is in process memory and is not designed for multiple backend workers.
-- Map, geocoding, routing, and SMTP features depend on external services and are not covered by the local regression checks.
+- Map, geocoding, routing, and SMTP features depend on external services and are not covered by the local regression checks. Public demo driver movement is simulated and outgoing email is disabled.
 - SMTP must be configured for password-reset delivery. Reset tokens are sent by email, never returned in the API response or logged.
 - Deployment manifests are starting points; supply and verify your own service addresses and host configuration.
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import api, { WS_URL } from '../services/api'
+import api, { WS_URL, websocketProtocols } from '../services/api'
 import Notifications from './Notifications'
 import ReviewModal from '../components/ReviewModal'
 import Chat from '../components/Chat'
@@ -155,7 +155,7 @@ function DashboardClient() {
       wsRef.current.close()
     }
 
-    const ws = new WebSocket(`${WS_URL}/ws/client/${user.id}`)
+    const ws = new WebSocket(`${WS_URL}/ws/client/${user.id}`, websocketProtocols())
     wsRef.current = ws
     
     ws.onopen = () => console.log('✅ Client WebSocket connected')

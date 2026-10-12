@@ -5,11 +5,11 @@ from email.mime.image import MIMEImage
 from jinja2 import Template
 import os
 
-from app.config import SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD, FRONTEND_URL
+from app.config import SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD, FRONTEND_URL, DEMO_MODE
 
 def send_email(to_email: str, subject: str, html_content: str):
     """Šalje email sa HTML sadržajem"""
-    if not SENDER_EMAIL or not SENDER_PASSWORD:
+    if DEMO_MODE or not SENDER_EMAIL or not SENDER_PASSWORD:
         return False
     try:
         msg = MIMEMultipart()

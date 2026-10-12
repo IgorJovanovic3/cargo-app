@@ -23,3 +23,5 @@ SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD", "")
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() in {"1", "true", "yes"}
+SERVE_FRONTEND = os.getenv("SERVE_FRONTEND", "false").lower() in {"1", "true", "yes"}

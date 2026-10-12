@@ -20,7 +20,7 @@ def register(client, role="client"):
     })
 
 
-def test_startup_never_seeds_users():
+def test_startup_never_seeds_users(client):
     from app.main import app
     with TestClient(app):
         with SessionLocal() as db:

@@ -5,7 +5,7 @@ import api from '../services/api'
 import LocationPicker from '../components/LocationPicker'
 
 function NovaPosiljka() {
-  const { user } = useAuth()
+  const { user, demo } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [calculating, setCalculating] = useState(false)
@@ -21,6 +21,15 @@ function NovaPosiljka() {
   const [dimensions, setDimensions] = useState('')
   const [price, setPrice] = useState('')
   const [effectiveWeight, setEffectiveWeight] = useState(0)
+
+  const fillDemoShipment = () => {
+    setPickup({ address: 'Demo pickup point — Belgrade', lat: 44.8125, lng: 20.4612 })
+    setDelivery({ address: 'Demo delivery point — Belgrade', lat: 44.7963, lng: 20.4744 })
+    setCargoDescription('Demo parcel — fictional shipment')
+    setWeightKg('2')
+    setDimensions('20x15x10')
+    setIsUrgent(false)
+  }
 
   const parseDimensions = (dimStr) => {
     if (!dimStr) return { length: 0, width: 0, height: 0 }
@@ -208,6 +217,7 @@ function NovaPosiljka() {
   return (
     <div className="nova-posiljka" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
       <h1>Kreiraj novu pošiljku</h1>
+      {demo?.enabled && <button type="button" onClick={fillDemoShipment} style={{ marginBottom: '1rem' }}>Use a fictional demo shipment</button>}
       
       {error && (
         <div style={{ 

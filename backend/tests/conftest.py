@@ -16,6 +16,8 @@ os.environ["FRONTEND_URL"] = "http://localhost:5173"
 os.environ["CORS_ORIGINS"] = "http://localhost:5173"
 os.environ["SENDER_EMAIL"] = ""
 os.environ["SENDER_PASSWORD"] = ""
+os.environ["DEMO_MODE"] = "false"
+os.environ["SERVE_FRONTEND"] = "false"
 
 from app.main import app
 from app.database import Base, SessionLocal, engine
