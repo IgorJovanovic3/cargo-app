@@ -2,6 +2,8 @@
 
 A Python backend and React web application for managing deliveries between clients and drivers. The project brings shipment management, role-based dashboards, maps, pricing, chat, notifications, and delivery confirmation into one workflow.
 
+Originally developed step by step for my own courier service, this project was built around a practical delivery workflow. It was used locally with test data and was never released for public or production use.
+
 ## Business use case
 
 A small delivery business needs to keep customer requests, driver assignments, shipment statuses, and proof of delivery together. Cargo App explores that workflow through a REST API backed by a relational database and a browser interface for clients, drivers, and administrators.
@@ -150,4 +152,4 @@ npm run build
 
 ## Credential cleanup
 
-Local environment files, database snapshots, and Python caches are excluded from the current source tree. Removing files in a new commit does **not** erase earlier Git history or revoke credentials. Any real credential previously published in this repository must be replaced at its provider, and exposed test accounts must be removed or have their passwords changed in every running deployment. See [credential cleanup notes](docs/credential-cleanup.md).
+Local environment files, database snapshots, and Python caches are excluded from the current source tree. The original accounts and configuration were for local testing; the application was never used publicly. Removing files in a new commit does **not** erase earlier Git history. Credential rotation is only needed if a test value was also used for a real account or service. See [credential cleanup notes](docs/credential-cleanup.md).

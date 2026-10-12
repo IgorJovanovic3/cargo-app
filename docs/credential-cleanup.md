@@ -2,6 +2,8 @@
 
 The cleanup removes tracked environment files, a populated local database snapshot, and Python bytecode. It also removes hardcoded JWT/SMTP/database credentials and automatic creation of privileged and test accounts.
 
+The project owner confirmed that the application was only used locally, its accounts and credentials were for testing, and it was never used publicly. There is no active production deployment to migrate. The provider/account actions below apply only if a test credential was reused for a real service; otherwise no rotation campaign is needed.
+
 ## Actions outside this source change
 
 1. Generate a new JWT `SECRET_KEY` and set it on every running backend. The previously hardcoded key must not remain trusted; changing it invalidates existing login tokens.
@@ -15,7 +17,7 @@ No secret values are recorded in these notes. New credentials must be configured
 
 ## Git history
 
-Earlier commits still contain the removed files and old source literals. Rotate credentials first. Any history rewrite requires coordinating clones, branches, tags, and possible forks; it is deliberately outside this cleanup commit. New changes can be reviewed without a force push.
+Earlier commits still contain the removed files and old source literals. If any credential was reused for a real service, rotate that credential first. A history rewrite is not required for the confirmed local test-only data. Any later rewrite would require coordinating clones, branches, tags, and possible forks. This cleanup preserves history and does not use a force push.
 
 ## Scope
 
