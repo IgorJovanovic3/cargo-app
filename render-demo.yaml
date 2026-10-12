@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: cargo-portfolio-demo
+    runtime: python
+    plan: free
+    buildCommand: bash scripts/build-demo.sh
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    branch: portfolio/public-demo
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.12
+      - key: NODE_VERSION
+        value: 24.19.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEMO_MODE
+        value: "true"
+      - key: SERVE_FRONTEND
+        value: "true"
+      - key: DATABASE_URL
+        value: sqlite:///./cargo_demo.db
+      - key: SENDER_EMAIL
+        value: ""
+      - key: SENDER_PASSWORD
+        value: ""

@@ -9,7 +9,7 @@ from app.dependencies import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
 import app.models as models
 import app.schemas as schemas
 from app.email_service import send_welcome_email, send_email
-from app.config import FRONTEND_URL
+from app.config import FRONTEND_URL, DEMO_MODE
 import secrets
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -37,6 +37,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 @router.post("/register", response_model=schemas.UserResponse)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    if DEMO_MODE:
+        raise HTTPException(status_code=403, detail="This demo uses fixed accounts. Registration and account changes are disabled.")
+
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email već registrovan")
@@ -120,6 +123,9 @@ async def update_profile(
 ):
     """Ažurira profil korisnika"""
     
+    if DEMO_MODE:
+        raise HTTPException(status_code=403, detail="This demo uses fixed accounts. Registration and account changes are disabled.")
+
     if "full_name" in profile_data:
         current_user.full_name = profile_data["full_name"]
     if "phone" in profile_data:
@@ -168,6 +174,9 @@ async def forgot_password(
     db: Session = Depends(get_db)
 ):
     """Šalje link za resetovanje lozinke na email"""
+    if DEMO_MODE:
+        raise HTTPException(status_code=403, detail="This demo uses fixed accounts. Registration and account changes are disabled.")
+
     user = db.query(models.User).filter(models.User.email == email).first()
     message = "Ako postoji nalog sa tim email-om, poslaćemo link za resetovanje lozinke"
     if not user:
@@ -196,6 +205,9 @@ async def reset_password(
     db: Session = Depends(get_db)
 ):
     """Resetuje lozinku koristeći token"""
+    if DEMO_MODE:
+        raise HTTPException(status_code=403, detail="This demo uses fixed accounts. Registration and account changes are disabled.")
+
     reset = db.query(models.PasswordReset).filter(
         models.PasswordReset.token == token,
         models.PasswordReset.is_used == 0,

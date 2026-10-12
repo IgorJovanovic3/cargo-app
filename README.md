@@ -153,10 +153,10 @@ npm run build
 
 ## Project status and limitations
 
-- WebSocket authentication and shipment authorization need a separate review before public deployment. Current handlers accept identifiers from their paths; do not use this prototype with real customer messages or location data.
+- WebSockets require JWT authentication and check user identity, role, and shipment participation. A wider security review is still needed before using this prototype with real business data.
 - Database migrations are not included. Automatic table creation is intended for development and does not upgrade existing database schemas.
 - WebSocket connection storage is in process memory and is not designed for multiple backend workers.
-- Map, geocoding, routing, and SMTP features depend on external services and are not covered by the local regression checks.
+- Map, geocoding, routing, and SMTP features depend on external services and are not covered by the local regression checks. Public demo driver movement is simulated and outgoing email is disabled.
 - SMTP must be configured for password-reset delivery. Reset tokens are sent by email, never returned in the API response or logged.
 - Deployment manifests are starting points; supply and verify your own service addresses and host configuration.
 

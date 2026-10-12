@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 function Register() {
@@ -27,7 +27,7 @@ function Register() {
   
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { register } = useAuth()
+  const { register, demo } = useAuth()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -54,6 +54,8 @@ function Register() {
       setLoading(false)
     }
   }
+
+  if (demo?.enabled) return <Navigate to="/login" replace />
 
   return (
     <div className="register-page">

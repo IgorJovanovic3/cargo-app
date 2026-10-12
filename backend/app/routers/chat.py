@@ -6,40 +6,51 @@ from app.database import get_db, SessionLocal
 from app.models import User, UserType, Shipment, ShipmentStatus, ChatMessage
 from app.schemas import ChatMessageResponse
 from app.routers.auth import get_current_user
+from app.websocket_auth import authenticate_websocket
+from app.config import DEMO_MODE
 import json
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# WebSocket za chat
+# Keep rooms separate and support several browser tabs per participant.
 class ChatConnectionManager:
     def __init__(self):
-        self.active_connections: Dict[int, WebSocket] = {}  # user_id -> websocket
+        self.active_connections = {}
 
-    async def connect(self, user_id: int, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections[user_id] = websocket
-        print(f"💬 User {user_id} connected to chat")
+    async def connect(self, shipment_id, user_id, websocket):
+        await websocket.accept(subprotocol="cargo")
+        self.active_connections.setdefault((shipment_id, user_id), set()).add(websocket)
 
-    def disconnect(self, user_id: int):
-        self.active_connections.pop(user_id, None)
-        print(f"💬 User {user_id} disconnected from chat")
+    def disconnect(self, shipment_id, user_id, websocket):
+        sockets = self.active_connections.get((shipment_id, user_id), set())
+        sockets.discard(websocket)
+        if not sockets:
+            self.active_connections.pop((shipment_id, user_id), None)
 
-    async def send_to_user(self, user_id: int, data: dict):
-        if user_id in self.active_connections:
+    async def send_to_user(self, shipment_id, user_id, data):
+        sent = False
+        for websocket in tuple(self.active_connections.get((shipment_id, user_id), ())):
             try:
-                await self.active_connections[user_id].send_json(data)
-                return True
-            except:
-                self.disconnect(user_id)
-        return False
+                await websocket.send_json(data)
+                sent = True
+            except Exception:
+                self.disconnect(shipment_id, user_id, websocket)
+        return sent
 
 chat_manager = ChatConnectionManager()
 
 
 @router.websocket("/ws/{shipment_id}/{user_id}")
 async def websocket_chat(websocket: WebSocket, shipment_id: int, user_id: int):
-    await chat_manager.connect(user_id, websocket)
+    if await authenticate_websocket(websocket, user_id) is None:
+        return
     db = SessionLocal()
+    shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
+    if not shipment or user_id not in {shipment.client_id, shipment.driver_id}:
+        db.close()
+        await websocket.close(code=1008)
+        return
+    await chat_manager.connect(shipment_id, user_id, websocket)
     
     try:
         while True:
@@ -49,10 +60,16 @@ async def websocket_chat(websocket: WebSocket, shipment_id: int, user_id: int):
                 
                 if json_data.get("type") == "message":
                     message_text = json_data.get("message")
+                    if not isinstance(message_text, str) or not message_text.strip() or len(message_text) > 2000:
+                        await websocket.send_json({"type": "error", "message": "Message must contain 1–2000 characters."})
+                        continue
+                    if DEMO_MODE and db.query(ChatMessage).count() >= 200:
+                        await websocket.send_json({"type": "error", "message": "The demo message limit has been reached."})
+                        continue
                     
                     # Pronađi primaoca
                     shipment = db.query(Shipment).filter(Shipment.id == shipment_id).first()
-                    if not shipment:
+                    if not shipment or user_id not in {shipment.client_id, shipment.driver_id}:
                         continue
                     
                     recipient_id = shipment.driver_id if user_id == shipment.client_id else shipment.client_id
@@ -74,7 +91,7 @@ async def websocket_chat(websocket: WebSocket, shipment_id: int, user_id: int):
                     
                     if recipient_id:
                         # Pošalji poruku primaocu
-                        await chat_manager.send_to_user(recipient_id, {
+                        await chat_manager.send_to_user(shipment_id, recipient_id, {
                             "type": "new_message",
                             "shipment_id": shipment_id,
                             "sender_id": user_id,
@@ -84,7 +101,7 @@ async def websocket_chat(websocket: WebSocket, shipment_id: int, user_id: int):
                         })
                         
                         # Pošalji potvrdu pošiljaocu
-                        await chat_manager.send_to_user(user_id, {
+                        await chat_manager.send_to_user(shipment_id, user_id, {
                             "type": "message_sent",
                             "message_id": new_message.id
                         })
@@ -95,8 +112,9 @@ async def websocket_chat(websocket: WebSocket, shipment_id: int, user_id: int):
                 print(f"Chat error: {e}")
                 
     except WebSocketDisconnect:
-        chat_manager.disconnect(user_id)
+        chat_manager.disconnect(shipment_id, user_id, websocket)
     finally:
+        chat_manager.disconnect(shipment_id, user_id, websocket)
         db.close()
 
 

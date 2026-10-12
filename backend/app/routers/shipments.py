@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from app.database import get_db
+from app.config import DEMO_MODE
 from app.models import User, UserType, Shipment, ShipmentStatus, DriverProfile, Pricing
 from app.schemas import (
     ShipmentCreate, ShipmentResponse, 
@@ -65,6 +66,9 @@ async def create_shipment(
     if current_user.user_type != UserType.CLIENT:
         raise HTTPException(status_code=403, detail="Samo klijenti mogu kreirati pošiljke")
     
+    if DEMO_MODE and db.query(Shipment).count() >= 100:
+        raise HTTPException(status_code=400, detail="The demo shipment limit has been reached.")
+
     # ShipmentCreate ima pickup_long i delivery_long (ne pickup_lng/delivery_lng)
     new_shipment = Shipment(
         client_id=current_user.id,
@@ -463,6 +467,9 @@ async def get_shipment_location(
     if not shipment:
         raise HTTPException(status_code=404, detail="Pošiljka nije pronađena")
     
+    if current_user.user_type != UserType.ADMIN and current_user.id not in {shipment.client_id, shipment.driver_id}:
+        raise HTTPException(status_code=403, detail="Nemate pristup lokaciji ove pošiljke")
+
     if shipment.driver_id:
         driver_profile = db.query(DriverProfile).filter(
             DriverProfile.user_id == shipment.driver_id
@@ -553,41 +560,6 @@ async def calculate_price(
 
 
 # ========== DOSTUPNI VOZAČI ZA KLIJENTA ==========
-@router.get("/drivers/available")
-async def get_available_drivers(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Dohvata sve dostupne vozače sa njihovim trenutnim lokacijama"""
-    
-    # Samo klijenti mogu videti dostupne vozače
-    if current_user.user_type != UserType.CLIENT:
-        raise HTTPException(status_code=403, detail="Samo klijenti mogu videti dostupne vozače")
-    
-    drivers = db.query(User).filter(
-        User.user_type == UserType.DRIVER,
-        User.is_active == 1
-    ).all()
-    
-    result = []
-    for driver in drivers:
-        profile = db.query(DriverProfile).filter(DriverProfile.user_id == driver.id).first()
-        # Prikazujemo samo vozače koji imaju aktivnu lokaciju
-        if profile and profile.current_latitude and profile.current_longitude:
-            result.append({
-                "id": driver.id,
-                "full_name": driver.full_name,
-                "current_latitude": profile.current_latitude,
-                "current_longitude": profile.current_longitude,
-                "vehicle_type": profile.vehicle_type or "Nepoznato",
-                "vehicle_plate": profile.vehicle_plate or "",
-                "max_load_kg": profile.max_load_kg or 0,
-                "is_available": profile.is_available
-            })
-    
-    return result
-
-
 # ========== VOZAČ EXPORT ==========
 @router.get("/driver/export/excel")
 async def export_driver_shipments_excel(

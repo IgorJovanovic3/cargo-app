@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 
 function Header() {
-  const { user, logout } = useAuth()
+  const { user, logout, demo } = useAuth()
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -113,9 +113,9 @@ function Header() {
                 <Link to="/login" style={styles.navLink} onClick={() => setMobileMenuOpen(false)}>
                   🔐 {t('prijava')}
                 </Link>
-                <Link to="/register" style={styles.navLink} onClick={() => setMobileMenuOpen(false)}>
+                {!demo?.enabled && <Link to="/register" style={styles.navLink} onClick={() => setMobileMenuOpen(false)}>
                   📝 {t('registracija')}
-                </Link>
+                </Link>}
               </div>
               
               <div style={styles.languageSwitcher}>
