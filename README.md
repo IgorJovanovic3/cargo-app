@@ -2,7 +2,17 @@
 
 A Python backend and React web application for managing deliveries between clients and drivers. The project brings shipment management, role-based dashboards, maps, pricing, chat, notifications, and delivery confirmation into one workflow.
 
-Originally developed step by step for my own courier service, this project was built around a practical delivery workflow. It was used locally with test data and was never released for public or production use.
+Originally developed step by step for my own courier service, this project was built around a practical delivery workflow. The original application was developed locally with test data and was not used for real customer operations. A public portfolio demo is now available below.
+
+## Live demo
+
+**[Try the live Cargo App demo](https://cargo-portfolio-demo.onrender.com/login)**
+
+Choose **Try as Client** or **Try as Driver** to sign in instantly; no registration or local installation is required. The demo includes fictional shipments, chat, delivery workflows, reports, and simulated driver movement.
+
+Demo data is shared among visitors and resets when the server restarts. The first visit after inactivity may take longer while the free hosting service wakes up.
+
+The demo implementation is available on the [`portfolio/public-demo` branch](https://github.com/IgorJovanovic3/cargo-app/tree/portfolio/public-demo).
 
 ## Business use case
 
@@ -152,4 +162,4 @@ npm run build
 
 ## Credential cleanup
 
-Local environment files, database snapshots, and Python caches are excluded from the current source tree. The original accounts and configuration were for local testing; the application was never used publicly. Removing files in a new commit does **not** erase earlier Git history. Credential rotation is only needed if a test value was also used for a real account or service. See [credential cleanup notes](docs/credential-cleanup.md).
+Local environment files, database snapshots, and Python caches are excluded from the current source tree. The original accounts and configuration were for local testing; the application was not used for real customer operations. Removing files in a new commit does **not** erase earlier Git history. Credential rotation is only needed if a test value was also used for a real account or service. See [credential cleanup notes](docs/credential-cleanup.md).
