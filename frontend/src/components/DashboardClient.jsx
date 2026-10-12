@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import api from '../services/api'
+import api, { WS_URL } from '../services/api'
 import Notifications from './Notifications'
 import ReviewModal from '../components/ReviewModal'
 import Chat from '../components/Chat'
@@ -14,9 +14,7 @@ import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import { useTranslation } from 'react-i18next'
 
-const WS_URL = window.location.protocol === 'https:' 
-  ? 'wss://cargo-backend-av58.onrender.com' 
-  : 'ws://localhost:8000'
+
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({

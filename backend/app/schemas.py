@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime
 
 # ========== USER SCHEMAS ==========
@@ -11,7 +11,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
-    user_type: str = "client"
+    user_type: Literal["client", "driver"] = "client"
     is_company: Optional[int] = 0
     company_name: Optional[str] = None
     company_pib: Optional[str] = None
