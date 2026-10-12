@@ -30,3 +30,15 @@ render_key.txt
 
 # Mobile
 cargo_mobile/
+# Local configuration, databases and generated Python files
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/

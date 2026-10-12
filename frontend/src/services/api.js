@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-// Hardkodovano za Render
-const API_URL = 'https://cargo-backend-av58.onrender.com'
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+export const WS_URL = API_URL.replace(/^http/, 'ws')
 
 const api = axios.create({
   baseURL: API_URL,

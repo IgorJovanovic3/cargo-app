@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 from app.database import engine, Base
+from app.config import CORS_ORIGINS
 from app.routers import auth, shipments, notifications, admin, reviews, chat
 from typing import Dict
 import json
@@ -11,71 +11,14 @@ import asyncio
 # ========== AUTO KREIRANJE TABELA I KORISNIKA ==========
 from app.database import SessionLocal
 from app.models import Base, User, UserType, DriverProfile, ChatMessage, Pricing
-from passlib.context import CryptContext
 
 # Kreiraj tabele ako ne postoje
 print("🔧 Kreiranje tabela...")
 Base.metadata.create_all(bind=engine)
 print("✅ Tabele su kreirane (ili već postoje)")
 
-# Kreiraj administrator korisnika ako ne postoji
-print("🔧 Provera administrator korisnika...")
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Privileged and demo users are never created automatically.
 db_session = SessionLocal()
-
-administrator = db_session.query(User).filter(User.email == "admin@test.com").first()
-if not administrator:
-    administrator = User(
-        email="admin@test.com",
-        hashed_password=pwd_context.hash("admin123"),
-        full_name="Administrator",
-        phone="0610000000",
-        user_type=UserType.ADMIN,
-        is_active=1
-    )
-    db_session.add(administrator)
-    db_session.commit()
-    print("✅ Administrator korisnik kreiran (email: admin@test.com, password: admin123)")
-else:
-    print("✅ Administrator korisnik već postoji")
-
-# Kreiraj test klijenta ako ne postoji
-client_user = db_session.query(User).filter(User.email == "klijent@test.com").first()
-if not client_user:
-    client_user = User(
-        email="klijent@test.com",
-        hashed_password=pwd_context.hash("123456"),
-        full_name="Test Klijent",
-        phone="0611234567",
-        user_type=UserType.CLIENT,
-        is_active=1
-    )
-    db_session.add(client_user)
-    db_session.commit()
-    print("✅ Test klijent kreiran (email: klijent@test.com, password: 123456)")
-else:
-    print("✅ Test klijent već postoji")
-
-# Kreiraj test vozača ako ne postoji
-driver_user = db_session.query(User).filter(User.email == "vozac@test.com").first()
-if not driver_user:
-    driver_user = User(
-        email="vozac@test.com",
-        hashed_password=pwd_context.hash("123456"),
-        full_name="Test Vozač",
-        phone="0611234568",
-        user_type=UserType.DRIVER,
-        is_active=1
-    )
-    db_session.add(driver_user)
-    db_session.commit()
-    
-    driver_profile = DriverProfile(user_id=driver_user.id)
-    db_session.add(driver_profile)
-    db_session.commit()
-    print("✅ Test vozač kreiran (email: vozac@test.com, password: 123456)")
-else:
-    print("✅ Test vozač već postoji")
 
 # Dodaj cenovnik ako ne postoji
 pricing = db_session.query(Pricing).first()
@@ -107,28 +50,12 @@ app = FastAPI(
 # ========== CORS MIDDLEWARE ==========
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://cargo-frontend-8k22.onrender.com",
-        "https://cargo-frontend.onrender.com",
-        "https://cargo-backend-av58.onrender.com",
-        "http://localhost:5173",
-        "http://localhost:3000",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
     expose_headers=["Content-Type", "Authorization"],
 )
-
-# ========== FORCED CORS MIDDLEWARE (ZA SVAKI RESPONSE) ==========
-class ForceCORSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        response.headers["Access-Control-Allow-Origin"] = "https://cargo-frontend-8k22.onrender.com"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        return response
-
-app.add_middleware(ForceCORSMiddleware)
 
 # WebSocket Connection Manager
 class ConnectionManager:

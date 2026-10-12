@@ -8,7 +8,8 @@ from app.database import get_db
 from app.dependencies import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
 import app.models as models
 import app.schemas as schemas
-from app.email_service import send_welcome_email
+from app.email_service import send_welcome_email, send_email
+from app.config import FRONTEND_URL
 import secrets
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -74,7 +75,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 @router.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not user.is_active or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Pogrešan email ili šifra",
@@ -168,8 +169,9 @@ async def forgot_password(
 ):
     """Šalje link za resetovanje lozinke na email"""
     user = db.query(models.User).filter(models.User.email == email).first()
+    message = "Ako postoji nalog sa tim email-om, poslaćemo link za resetovanje lozinke"
     if not user:
-        return {"message": "Ako postoji nalog sa tim email-om, poslaćemo link za resetovanje lozinke"}
+        return {"message": message}
     
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
@@ -182,13 +184,10 @@ async def forgot_password(
     db.add(reset)
     db.commit()
     
-    reset_link = f"http://localhost:5173/reset-password?token={token}"
-    print(f"🔐 Reset link za {email}: {reset_link}")
-    
-    return {
-        "message": "Link za resetovanje lozinke je poslat",
-        "reset_link": reset_link
-    }
+    reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
+    from html import escape
+    send_email(user.email, "Resetovanje lozinke", f'<p><a href="{escape(reset_link, quote=True)}">Resetuj lozinku</a></p>')
+    return {"message": message}
 
 @router.post("/reset-password")
 async def reset_password(

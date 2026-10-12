@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
-import api from '../services/api'
+import api, { WS_URL } from '../services/api'
 import Chat from '../components/Chat'
 import QrScanner from '../components/QrScanner'
 import EditShipmentModal from './EditShipmentModal'
@@ -16,9 +16,7 @@ import L from 'leaflet'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Tooltip, Legend, Title)
 
-const WS_URL = window.location.protocol === 'https:' 
-  ? 'wss://cargo-backend-av58.onrender.com' 
-  : 'ws://localhost:8000'
+
 
 // Fix za marker ikone
 delete L.Icon.Default.prototype._getIconUrl

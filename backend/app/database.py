@@ -1,22 +1,19 @@
-import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+from app.config import DATABASE_URL
 
-if not DATABASE_URL:
-    print("⚠️ DATABASE_URL not found. Falling back to local MySQL configuration.")
-    DATABASE_URL = "mysql+pymysql://cargo_user:David17Dora21@localhost:3306/cargo_db"
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-else:
-    print("✅ DATABASE_URL found. Using PostgreSQL for production.")
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"sslmode": "require"},
-        pool_pre_ping=True,
-        pool_recycle=300
-    )
+# SQLAlchemy requires the explicit PostgreSQL dialect name.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite:") else {}
+engine = create_engine(
+    DATABASE_URL,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -5,14 +5,12 @@ from email.mime.image import MIMEImage
 from jinja2 import Template
 import os
 
-# SMTP podešavanja (za Gmail)
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SENDER_EMAIL = "tvojemail@gmail.com"  # Zameni sa tvojim Gmail-om
-SENDER_PASSWORD = "tvoja lozinka ili app password"  # Zameni
+from app.config import SMTP_SERVER, SMTP_PORT, SENDER_EMAIL, SENDER_PASSWORD, FRONTEND_URL
 
 def send_email(to_email: str, subject: str, html_content: str):
     """Šalje email sa HTML sadržajem"""
+    if not SENDER_EMAIL or not SENDER_PASSWORD:
+        return False
     try:
         msg = MIMEMultipart()
         msg["From"] = SENDER_EMAIL
@@ -21,7 +19,7 @@ def send_email(to_email: str, subject: str, html_content: str):
         
         msg.attach(MIMEText(html_content, "html"))
         
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=15)
         server.starttls()
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
@@ -129,7 +127,7 @@ def send_shipment_status_email(to_email: str, shipment_id: int, status: str, det
                 <p>Status vaše pošiljke <strong>#{shipment_id}</strong> je promenjen.</p>
                 {details_html}
                 <p style="margin-top: 20px;">
-                    <a href="http://localhost:5173/dashboard" style="background: {color}; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                    <a href="{FRONTEND_URL}/dashboard" style="background: {color}; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                         Pogledaj detalje
                     </a>
                 </p>
